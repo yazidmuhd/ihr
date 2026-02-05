@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./ihruikit.css";
+
+/* ===== Animated app background (soft, professional) ===== */
+.bg-animated {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+        radial-gradient(1200px 800px at 10% -10%, #10b98122, transparent 60%),
+        radial-gradient(1000px 700px at 110% 20%, #22c55e22, transparent 55%),
+        radial-gradient(900px 600px at 50% 120%, #0ea5e922, transparent 60%),
+        linear-gradient(180deg, #f8fafc, #f1f5f9);
+    overflow: hidden;
+}
+.bg-animated::before,
+.bg-animated::after {
+    content: "";
+    position: absolute;
+    width: 80vmax;
+    height: 80vmax;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.35;
+    background:
+        radial-gradient(circle at 30% 30%, #10b98155, transparent 60%),
+        radial-gradient(circle at 70% 70%, #0ea5e955, transparent 60%);
+    animation: blobFloat 22s ease-in-out infinite;
+}
+.bg-animated::after {
+    width: 65vmax;
+    height: 65vmax;
+    left: 20%;
+    top: -10%;
+    opacity: 0.3;
+    background:
+        radial-gradient(circle at 70% 30%, #22c55e55, transparent 60%),
+        radial-gradient(circle at 40% 70%, #14b8a655, transparent 60%);
+    animation: blobFloatReverse 26s ease-in-out infinite;
+}
+
+@keyframes blobFloat {
+    0% {
+        transform: translate(-10%, -5%) rotate(0deg) scale(1);
+    }
+    50% {
+        transform: translate(10%, 5%) rotate(180deg) scale(1.05);
+    }
+    100% {
+        transform: translate(-10%, -5%) rotate(360deg) scale(1);
+    }
+}
+@keyframes blobFloatReverse {
+    0% {
+        transform: translate(5%, -10%) rotate(0deg) scale(1);
+    }
+    50% {
+        transform: translate(-5%, 10%) rotate(-180deg) scale(1.07);
+    }
+    100% {
+        transform: translate(5%, -10%) rotate(-360deg) scale(1);
+    }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .bg-animated::before,
+    .bg-animated::after {
+        animation: none;
+    }
+}
+
+/* ===== Aesthetic buttons & links (re-usable) ===== */
+.btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 font-medium text-white shadow-md transition;
+    box-shadow:
+        0 8px 20px -10px rgba(16, 185, 129, 0.75),
+        0 1px 0 rgba(16, 185, 129, 0.2) inset;
+}
+.btn-primary:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 14px 30px -12px rgba(16, 185, 129, 0.85);
+}
+.btn-primary:active {
+    @apply translate-y-0;
+    box-shadow: 0 6px 16px -12px rgba(16, 185, 129, 0.9) inset;
+}
+
+.btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-700 transition;
+    box-shadow: 0 6px 18px -14px rgba(2, 6, 23, 0.5);
+}
+.btn-ghost:hover {
+    @apply -translate-y-0.5 border-slate-300;
+    box-shadow: 0 12px 26px -16px rgba(2, 6, 23, 0.45);
+}
+.btn-ghost:active {
+    @apply translate-y-0;
+}
+
+.link-cta {
+    @apply relative font-medium text-emerald-700;
+}
+.link-cta::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 2px;
+    width: 100%;
+    background: linear-gradient(90deg, #10b981, #0ea5e9);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s ease;
+    border-radius: 9999px;
+}
+.link-cta:hover::after {
+    transform: scaleX(1);
+}
+
+/* ===== Cards / panels hover polish ===== */
+.card-hover {
+    @apply transition;
+    box-shadow: 0 6px 24px -18px rgba(2, 6, 23, 0.25);
+}
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 18px 40px -20px rgba(2, 6, 23, 0.35),
+        0 0 0 1px rgba(2, 6, 23, 0.06) inset;
+}
+
+/* ========== Status pills ========== */
+.badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition;
+}
+.badge-success {
+    color: #065f46; /* emerald-900-ish */
+    background: #d1fae5; /* emerald-100 */
+    box-shadow: 0 8px 16px -12px rgba(16, 185, 129, 0.45);
+}
+.badge-muted {
+    color: #334155; /* slate-700 */
+    background: #e2e8f0; /* slate-200 */
+    box-shadow: 0 8px 16px -12px rgba(2, 6, 23, 0.2);
+}
+
+/* soft pulse on hover */
+.hover-pulse:hover {
+    animation: pulseSoft 0.9s ease-in-out;
+}
+@keyframes pulseSoft {
+    0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.25);
+    }
+    50% {
+        transform: translateY(-1px) scale(1.02);
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.08);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}

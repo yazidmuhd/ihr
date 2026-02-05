@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 414.22 411.82">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+        font-family: HiJack, 'Hi Jack';
+        font-size: 119.84px;
+      }
+
+      .cls-2 {
+        fill: #55b7a4;
+      }
+    </style>
+  </defs>
+  <rect class="cls-2" x="25.38" y="197.48" width="363.46" height="140.05"/>
+  <rect class="cls-2" x="0" y="175.44" width="414.22" height="27.42" rx="6.91" ry="6.91"/>
+  <path class="cls-2" d="M11.6,361.22h391.01c6.4,0,11.6,5.2,11.6,11.6v38.99H0v-38.99C0,366.42,5.2,361.22,11.6,361.22Z"/>
+  <rect class="cls-2" x="97.81" y="0" width="74.1" height="92.21" rx="18.68" ry="18.68"/>
+  <path class="cls-2" d="M212.92,123.36v29.1H60.31v-32.61c0-15.26,12.37-27.63,27.63-27.63h0c8.49,14.18,26.3,23.94,46.91,23.94s38.44-9.76,46.91-23.94h0c17.2,0,31.14,13.94,31.14,31.14Z"/>
+  <path class="cls-2" d="M343.1,152.46h-96.31c-6.74,0-11.29-6.89-8.63-13.09l23.69-55.31c1.48-3.45,4.88-5.69,8.63-5.69h94.83c6.65,0,11.19,6.72,8.72,12.89l-22.21,55.31c-1.43,3.56-4.88,5.89-8.72,5.89Z"/>
+  <text class="cls-1" transform="translate(88.18 303.48)"><tspan x="0" y="0">i-HR</tspan></text>
+</svg>

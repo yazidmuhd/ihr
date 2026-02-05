@@ -1,0 +1,128 @@
+/* ================================
+   i-HR UI Kit (shared)
+   ================================ */
+
+/* Buttons */
+.btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition;
+    box-shadow: 0 8px 22px -10px rgba(16, 185, 129, 0.55);
+}
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 30px -14px rgba(16, 185, 129, 0.55);
+}
+.btn-primary:focus-visible {
+    outline: 2px solid #10b98133;
+    outline-offset: 2px;
+}
+
+.btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 transition;
+    box-shadow: 0 10px 18px -14px rgba(2, 6, 23, 0.25);
+}
+.btn-ghost:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 28px -16px rgba(2, 6, 23, 0.28);
+}
+.btn-ghost:focus-visible {
+    outline: 2px solid #0ea5e933;
+    outline-offset: 2px;
+}
+
+.btn-outline {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition;
+}
+.btn-outline:hover {
+    @apply border-emerald-400 text-emerald-700;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    @apply inline-flex items-center justify-center rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition;
+    box-shadow: 0 10px 18px -14px rgba(244, 63, 94, 0.35);
+}
+.btn-danger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 28px -16px rgba(244, 63, 94, 0.35);
+}
+
+.btn-link {
+    @apply text-sm font-medium text-emerald-700;
+}
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+/* Small size helper */
+.btn-sm {
+    @apply px-3 py-1.5 text-xs;
+}
+
+/* Badges */
+.badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition;
+}
+.badge-success {
+    color: #065f46;
+    background: #d1fae5;
+    box-shadow: 0 8px 16px -12px rgba(16, 185, 129, 0.35);
+}
+.badge-muted {
+    color: #334155;
+    background: #e2e8f0;
+    box-shadow: 0 8px 16px -12px rgba(2, 6, 23, 0.18);
+}
+.badge-warn {
+    color: #92400e;
+    background: #fde68a;
+}
+
+/* Subtle hover pulse (for status chips) */
+.hover-pulse:hover {
+    animation: ihrPulse 0.9s ease-in-out;
+}
+@keyframes ihrPulse {
+    0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.22);
+    }
+    50% {
+        transform: translateY(-1px) scale(1.02);
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.08);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Cards & tables (light lift on hover) */
+.card {
+    @apply rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 transition;
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 36px -22px rgba(2, 6, 23, 0.28);
+}
+
+.table {
+    @apply w-full min-w-[720px];
+}
+.table th,
+.table td {
+    @apply px-4 py-3;
+}
+.table thead th {
+    @apply bg-slate-50 text-left text-sm font-semibold text-slate-700;
+}
+
+/* Muted text & page titles */
+.muted {
+    @apply text-slate-600;
+}
+.page-title {
+    @apply text-2xl font-semibold text-slate-900;
+}
+.page-sub {
+    @apply mt-1 text-sm text-slate-600;
+}

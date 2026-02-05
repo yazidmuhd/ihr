@@ -1,0 +1,358 @@
+/* resources/css/components.css */
+/* i-HR design system — Tailwind @apply utilities with brand color `primary` */
+
+@layer components {
+    /* ---------- Site background layers ---------- */
+    :root {
+        --brand: #00b09c;
+    }
+
+    /* container for all fixed layers */
+    .bg-layers {
+        @apply pointer-events-none fixed inset-0 -z-10;
+    }
+
+    /* very soft gradient base */
+    .bg-gradient {
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(
+                1200px 600px at 10% -10%,
+                rgba(0, 176, 156, 0.18),
+                transparent 60%
+            ),
+            radial-gradient(
+                1000px 500px at 110% 0%,
+                rgba(0, 176, 156, 0.12),
+                transparent 60%
+            ),
+            linear-gradient(180deg, #f8fafc 0%, #f4fdfa 50%, #f7fafc 100%);
+    }
+
+    /* subtle grid pattern */
+    .bg-grid {
+        position: absolute;
+        inset: 0;
+        opacity: 0.35;
+        background-size: 40px 40px;
+        background-image:
+            linear-gradient(
+                to right,
+                rgba(2, 6, 23, 0.06) 1px,
+                transparent 1px
+            ),
+            linear-gradient(
+                to bottom,
+                rgba(2, 6, 23, 0.06) 1px,
+                transparent 1px
+            );
+    }
+
+    /* optional tiny noise for texture */
+    .bg-noise {
+        position: absolute;
+        inset: 0;
+        opacity: 0.05;
+        mix-blend-mode: multiply;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E");
+    }
+
+    /* soft animated brand blobs */
+    .blob {
+        position: absolute;
+        border-radius: 9999px;
+        filter: blur(40px);
+        opacity: 0.18;
+    }
+    .blob-1 {
+        width: 36rem;
+        height: 36rem;
+        left: -8rem;
+        top: 6rem;
+        background: radial-gradient(
+            circle at 30% 30%,
+            rgba(0, 176, 156, 0.8),
+            transparent 60%
+        );
+        animation: floaty 16s ease-in-out infinite;
+    }
+    .blob-2 {
+        width: 28rem;
+        height: 28rem;
+        right: -10rem;
+        top: 16rem;
+        background: radial-gradient(
+            circle at 70% 30%,
+            rgba(0, 176, 156, 0.7),
+            transparent 60%
+        );
+        animation: floaty 18s ease-in-out infinite reverse;
+    }
+    @keyframes floaty {
+        0% {
+            transform: translateY(0) translateX(0) scale(1);
+        }
+        50% {
+            transform: translateY(-20px) translateX(10px) scale(1.05);
+        }
+        100% {
+            transform: translateY(0) translateX(0) scale(1);
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .blob-1,
+        .blob-2 {
+            animation: none;
+        }
+    }
+
+    /* ---------- Top nav sizing & links ---------- */
+    .topnav {
+        @apply border-b bg-white/95 backdrop-blur;
+    }
+    .topnav-inner {
+        @apply mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8;
+    } /* 64px */
+    .brand {
+        @apply flex items-center gap-2 text-slate-900;
+    }
+    .brand-text {
+        @apply text-lg font-bold tracking-tight;
+    }
+    .nav-links {
+        @apply flex items-center gap-4;
+    }
+    .nav-link {
+        @apply text-[15px] font-medium text-slate-600 hover:text-slate-900;
+    }
+    .nav-link--primary {
+        @apply inline-flex items-center rounded-xl bg-primary px-3 py-1.5 text-white hover:bg-primary-dark;
+    }
+
+    /* ---------- Page shell ---------- */
+    .page {
+        @apply rounded-2xl bg-white p-6 shadow;
+    }
+    .page-naked {
+        @apply p-0;
+    }
+    .page-title {
+        @apply text-2xl font-semibold tracking-tight;
+    }
+    .page-sub {
+        @apply text-sm text-slate-600;
+    }
+
+    /* ---------- Text helpers ---------- */
+    .muted {
+        @apply text-sm text-slate-600;
+    }
+    .meta {
+        @apply text-xs text-slate-400;
+    }
+
+    /* ---------- Cards / surfaces ---------- */
+    .card {
+        @apply rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200;
+    }
+    .card-hover {
+        @apply transition hover:shadow-md;
+    }
+
+    /* ---------- Big form/card surface ---------- */
+    .form-surface {
+        @apply rounded-2xl bg-white/95 p-6 shadow-lg ring-1 ring-slate-200 md:p-8;
+    }
+    .form-hero {
+        @apply -mx-6 -mt-6 mb-6 rounded-t-2xl md:-mx-8 md:-mt-8 md:mb-8;
+        background: linear-gradient(
+            135deg,
+            rgba(0, 176, 156, 0.95),
+            rgba(0, 176, 156, 0.7)
+        );
+    }
+    .form-hero-inner {
+        @apply px-6 py-4 text-white md:px-8;
+    }
+    .form-hero-title {
+        @apply text-base font-semibold md:text-lg;
+    }
+    .form-hero-sub {
+        @apply text-xs text-white/85 md:text-sm;
+    }
+    .section-sep {
+        @apply my-6 border-t border-slate-200 md:my-8;
+    }
+
+    /* ---------- Forms: layout ---------- */
+    .form {
+        @apply space-y-8;
+    }
+    .form-section {
+        @apply space-y-6;
+    }
+    .form-header {
+        @apply flex items-baseline justify-between;
+    }
+    .form-title {
+        @apply text-lg font-medium text-slate-900;
+    }
+    .form-desc {
+        @apply text-sm text-slate-600;
+    }
+    .form-grid {
+        @apply grid grid-cols-1 gap-6 md:grid-cols-2;
+    }
+    .form-row {
+        @apply grid grid-cols-1 gap-2;
+    }
+    .form-actions {
+        @apply flex justify-end gap-3;
+    }
+
+    /* ---------- Forms: fields ---------- */
+    .label {
+        @apply block text-sm font-medium text-slate-700;
+    }
+    .label-required::after {
+        content: " *";
+        @apply text-red-600;
+    }
+    .field {
+        @apply w-full rounded-xl border-slate-300 focus:border-primary focus:ring-0;
+    }
+    .help {
+        @apply text-xs text-slate-500;
+    }
+    .error {
+        @apply text-xs text-red-600;
+    }
+
+    /* Grouped inputs */
+    .input-group {
+        @apply flex overflow-hidden rounded-xl ring-1 ring-slate-300 focus-within:ring-primary;
+    }
+    .input-group > .addon {
+        @apply border-r bg-slate-50 px-3 py-2 text-sm text-slate-600;
+    }
+    .input-group > .field {
+        @apply flex-1 rounded-none border-0 ring-0;
+    }
+
+    /* Elevated style (optional) */
+    .float-group {
+        @apply relative;
+    }
+    .float-label {
+        @apply absolute -top-2 left-3 bg-white px-2 text-xs font-medium text-primary;
+    }
+    .field-elevated {
+        @apply h-12 w-full rounded-xl border-2 border-slate-200 placeholder-slate-400 focus:border-primary focus:ring-0;
+    }
+    .field-icon {
+        @apply pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500;
+    }
+    .select-caret {
+        @apply pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500;
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+        @apply inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition;
+    }
+    .btn-primary {
+        @apply btn bg-primary text-white hover:bg-primary-dark focus:ring-4 focus:ring-primary/20;
+    }
+    .btn-outline {
+        @apply btn border border-slate-300 text-slate-700 hover:bg-slate-50;
+    }
+    .btn-ghost {
+        @apply btn text-slate-700 hover:bg-slate-100;
+    }
+    .btn-danger {
+        @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-4 focus:ring-red-100;
+    }
+    .btn-sm {
+        @apply px-3 py-1 text-xs;
+    }
+    .btn-link {
+        @apply text-primary underline underline-offset-4 hover:text-primary-dark;
+    }
+    .btn-brand {
+        @apply btn bg-primary text-white shadow-md hover:bg-primary-dark hover:shadow-lg;
+    }
+    .btn-soft {
+        @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200;
+    }
+
+    /* ---------- Badges / chips ---------- */
+    .badge {
+        @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs;
+    }
+    .badge-muted {
+        @apply badge bg-slate-100 text-slate-700;
+    }
+    .badge-ok {
+        @apply badge bg-green-100 text-green-700;
+    }
+    .badge-warn {
+        @apply badge bg-amber-100 text-amber-700;
+    }
+    .badge-brand {
+        @apply badge bg-primary/10 text-primary;
+    }
+
+    /* ---------- Tables ---------- */
+    .table {
+        @apply min-w-full text-sm;
+    }
+    .table thead {
+        @apply bg-slate-50;
+    }
+    .table th {
+        @apply px-4 py-2 text-left font-medium text-slate-600;
+    }
+    .table td {
+        @apply px-4 py-3;
+    }
+    .table tr {
+        @apply border-t;
+    }
+    .table tbody tr:hover {
+        @apply bg-slate-50;
+    }
+
+    /* ---------- Tabs ---------- */
+    .tabs {
+        @apply flex gap-1 border-b;
+    }
+    .tab {
+        @apply rounded-t-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-800;
+    }
+    .tab-active {
+        @apply border-b-2 border-primary text-primary;
+    }
+
+    /* ---------- Vibrant panel (search/filters) ---------- */
+    .panel-brand {
+        @apply relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-dark p-5 text-white;
+    }
+    .panel-title {
+        @apply text-lg font-semibold;
+    }
+    .panel-sub {
+        @apply text-sm text-white/80;
+    }
+    .panel-glass {
+        @apply mt-4 rounded-xl bg-white/90 p-4 ring-1 ring-white/40 backdrop-blur;
+    }
+
+    /* ---------- Job cards (listing) ---------- */
+    .job-card {
+        @apply card card-hover;
+    }
+    .job-title {
+        @apply font-semibold text-slate-900 group-hover:text-slate-950;
+    }
+}
