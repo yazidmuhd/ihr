@@ -32,6 +32,8 @@ ENV PORT=8080
 RUN sed -i "s/80/${PORT}/g" /etc/apache2/ports.conf /etc/apache2/sites-available/000-default.conf
 
 RUN a2enmod rewrite headers \
+ && a2dismod mpm_event mpm_worker || true \
+ && a2enmod mpm_prefork \
  && sed -ri 's!DocumentRoot /var/www/html!DocumentRoot /var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
  && printf '\n<Directory /var/www/html/public>\n  AllowOverride All\n  Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf
 
