@@ -31,11 +31,15 @@ FROM php:8.2-apache
 ENV PORT=8080
 RUN sed -i "s/80/${PORT}/g" /etc/apache2/ports.conf /etc/apache2/sites-available/000-default.conf
 
-RUN a2enmod rewrite headers \
- && a2dismod mpm_event mpm_worker || true \
- && a2enmod mpm_prefork \
- && sed -ri 's!DocumentRoot /var/www/html!DocumentRoot /var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
- && printf '\n<Directory /var/www/html/public>\n  AllowOverride All\n  Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf
+RUN set -eux; \
+  a2enmod rewrite headers; \
+  (a2dismod mpm_event mpm_worker || true); \
+  a2enmod mpm_prefork; \
+  rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*; \
+  ln -sf /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load; \
+  ln -sf /etc/apache2/mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf; \
+  sed -ri 's!DocumentRoot /var/www/html!DocumentRoot /var/www/html/public!g' /etc/apache2/sites-available/000-default.conf; \
+  printf '\n<Directory /var/www/html/public>\n  AllowOverride All\n  Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf
 
 RUN apt-get update && apt-get install -y \
     unzip libpq-dev libzip-dev \
