@@ -21,9 +21,9 @@ ENV PORT=8080
 RUN sed -i "s/80/${PORT}/g" /etc/apache2/ports.conf /etc/apache2/sites-available/000-default.conf
 
 # Apache config for Laravel public/
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
-    && a2enmod rewrite headers
+RUN a2enmod rewrite headers \
+ && sed -ri 's!DocumentRoot /var/www/html!DocumentRoot /var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
+ && printf '\n<Directory /var/www/html/public>\n  AllowOverride All\n  Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf
 
 # System deps + PHP extensions (Postgres, zip etc.)
 RUN apt-get update && apt-get install -y \
