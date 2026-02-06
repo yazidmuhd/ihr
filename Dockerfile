@@ -6,12 +6,12 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# ---- Install PHP dependencies ----
+# ---- Install PHP dependencies (NO scripts here) ----
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
-COPY . .
+# IMPORTANT: --no-scripts prevents "php artisan package:discover" during build stage
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
 # ---- Final runtime ----
 FROM php:8.2-apache
@@ -34,14 +34,18 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /var/www/html
 
 # Copy app source
-COPY . /var/www/html
+COPY . .
 
 # Copy vendor + built assets
-COPY --from=vendor /app/vendor /var/www/html/vendor
-COPY --from=nodebuild /app/public/build /var/www/html/public/build
+COPY --from=vendor /app/vendor ./vendor
+COPY --from=nodebuild /app/public/build ./public/build
+
+# Ensure Laravel writable dirs exist (just in case)
+RUN mkdir -p storage/framework/{cache/data,sessions,views} bootstrap/cache
 
 # Permissions for Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Recommended optimize (safe at build-time)
-RUN php artisan config:clear && php artisan route:clear && php artisan view:clear
+# Avoid running artisan in Docker build (can fail without APP_KEY in CI)
+# Instead, just remove any cached files if present:
+RUN rm -f bootstrap/cache/*.php || true
