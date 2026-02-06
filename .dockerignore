@@ -1,7 +1,7 @@
-.git
 node_modules
 vendor
-.env
 storage/logs
-storage/framework
-bootstrap/cache
+storage/framework/sessions
+storage/framework/views
+storage/framework/cache
+.env
