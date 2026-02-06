@@ -32,14 +32,18 @@ ENV PORT=8080
 RUN sed -i "s/80/${PORT}/g" /etc/apache2/ports.conf /etc/apache2/sites-available/000-default.conf
 
 RUN set -eux; \
-  a2enmod rewrite headers; \
-  (a2dismod mpm_event mpm_worker || true); \
-  a2enmod mpm_prefork; \
-  rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*; \
-  ln -sf /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load; \
-  ln -sf /etc/apache2/mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf; \
+  # wipe any MPM that might be enabled
+  rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf; \
+  \
+  # enable ONLY prefork + required modules
+  a2enmod mpm_prefork rewrite headers; \
+  \
+  # set Laravel public/ as document root
   sed -ri 's!DocumentRoot /var/www/html!DocumentRoot /var/www/html/public!g' /etc/apache2/sites-available/000-default.conf; \
-  printf '\n<Directory /var/www/html/public>\n  AllowOverride All\n  Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf
+  printf '\n<Directory /var/www/html/public>\n  AllowOverride All\n  Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf; \
+  \
+  # build-time sanity check (fails the build if more than 1 MPM is loaded)
+  apache2ctl -M | grep -E "mpm_(prefork|event|worker)_module" || true
 
 RUN apt-get update && apt-get install -y \
     unzip libpq-dev libzip-dev \
