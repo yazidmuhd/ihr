@@ -5,3 +5,8 @@ storage/framework/sessions
 storage/framework/views
 storage/framework/cache
 .env
+public/hot
+public/storage
+.git
+storage/app/public/resumes
+storage/app/public/avatars

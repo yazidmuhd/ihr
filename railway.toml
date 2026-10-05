@@ -1,0 +1,14 @@
+# Railway config-as-code, shared by every service built from this repo
+# (the "web" and "worker" services in both the production and staging environments).
+# Per-service settings live in each service's Variables / Settings:
+#   web:    CONTAINER_ROLE=web,    health check path /up
+#   worker: CONTAINER_ROLE=worker, no health check, no public domain
+# See docs/DEPLOYMENT.md.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# ALWAYS: a container that stops for any reason is started again
+restartPolicyType = "ALWAYS"

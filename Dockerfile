@@ -42,4 +42,6 @@ RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/fra
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["sh", "-c", "php artisan serve --host=0.0.0.0 --port=${PORT}"]
+# Web or queue worker, chosen by CONTAINER_ROLE (see docker/start.sh)
+RUN chmod +x docker/start.sh
+CMD ["sh", "docker/start.sh"]
