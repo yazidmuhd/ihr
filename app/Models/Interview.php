@@ -25,9 +25,24 @@ class Interview extends Model
         'candidate_reason',
     ];
 
+    protected $casts = [
+        'scheduled_at'        => 'datetime',
+        'reminder_3d_sent_at' => 'datetime',
+    ];
+
     public function application()
     {
         return $this->belongsTo(Application::class);
+    }
+
+    public function vacancy()
+    {
+        return $this->belongsTo(Vacancy::class);
+    }
+
+    public function applicant()
+    {
+        return $this->belongsTo(Applicant::class);
     }
 
     public function panels()

@@ -78,6 +78,7 @@ function confirmLogout() {
 const primaryTabs = [
     { label: "Dashboard", href: "/hr/dashboard", icon: "dashboard" },
     { label: "Vacancies", href: "/hr/vacancies", icon: "briefcase" },
+    { label: "Activity", href: "/hr/activity", icon: "activity" },
 ];
 
 const hiringItems = [
@@ -105,6 +106,7 @@ const hiringItems = [
 
 /* Icons */
 const icons = {
+    activity: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
     dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
     briefcase: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 12h18"/></svg>`,
     sparkles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5L12 2Z"/><path d="M5 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z"/><path d="M18 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z"/></svg>`,

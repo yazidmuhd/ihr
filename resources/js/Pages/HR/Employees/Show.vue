@@ -10,7 +10,12 @@ const props = defineProps({
     resume: { type: Object, default: () => null },
     interview: { type: Object, default: () => null },
     panels: { type: Array, default: () => [] },
+    timeline: { type: Array, default: () => [] },
 });
+
+const fmt = (s) =>
+    s ? new Date(s.replace(" ", "T")).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+const statusLabel = (s) => (s ? s.replace(/_/g, " ") : "");
 </script>
 
 <template>
@@ -73,22 +78,8 @@ const props = defineProps({
                     <div class="row" v-if="candidate.phone">
                         <b>Phone:</b> {{ candidate.phone }}
                     </div>
-                    <div class="row" v-if="candidate.headline">
-                        <b>Headline:</b> {{ candidate.headline }}
-                    </div>
                     <div class="row" v-if="candidate.location">
                         <b>Location:</b> {{ candidate.location }}
-                    </div>
-
-                    <div class="mt-3" v-if="candidate.skills_text">
-                        <div class="text-sm font-semibold text-slate-800">
-                            Skills
-                        </div>
-                        <div
-                            class="mt-1 whitespace-pre-wrap text-sm text-slate-700"
-                        >
-                            {{ candidate.skills_text }}
-                        </div>
                     </div>
 
                     <div class="mt-3 flex flex-wrap gap-2 text-sm">
@@ -152,6 +143,26 @@ const props = defineProps({
                     >
                 </div>
             </template>
+        </section>
+
+        <!-- Hiring timeline (from the application status history) -->
+        <section v-if="application" class="box mt-4">
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="title !mb-0">Hiring Timeline</h2>
+                <Link :href="`/hr/activity?application=${application.id}`" class="text-xs font-semibold text-slate-600 underline">
+                    Full activity
+                </Link>
+            </div>
+            <ol v-if="timeline.length" class="timeline mt-4">
+                <li v-for="(t, i) in timeline" :key="i" class="timeline-item">
+                    <span class="timeline-dot" />
+                    <span class="font-semibold capitalize text-slate-900">
+                        {{ t.from ? `${statusLabel(t.from)} → ${statusLabel(t.to)}` : "Applied" }}
+                    </span>
+                    <span class="text-slate-500"> · {{ t.by }} · {{ fmt(t.at) }}</span>
+                </li>
+            </ol>
+            <div v-else class="muted mt-2">No status history recorded.</div>
         </section>
 
         <!-- Interview -->
@@ -267,5 +278,14 @@ const props = defineProps({
 }
 .off {
     color: #cbd5e1;
+}
+.timeline {
+    @apply relative ml-2 space-y-3 border-l-2 border-slate-200 pl-5;
+}
+.timeline-item {
+    @apply relative;
+}
+.timeline-dot {
+    @apply absolute -left-[27px] top-1.5 h-3 w-3 rounded-full bg-slate-900 ring-4 ring-white;
 }
 </style>

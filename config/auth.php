@@ -1,12 +1,9 @@
 <?php
 
-use App\Models\HRStaff;
-use App\Models\Applicant;
-
 return [
 
     'defaults' => [
-        // we’ll still use 'web' for generic stuff, but our login will use hr/applicant guards explicitly
+        // HR and applicants both log in through the users table (role / is_hr decide access)
         'guard' => 'web',
         'passwords' => 'users',
     ],
@@ -14,47 +11,20 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
-            'provider' => 'users', // default (optional to keep)
-        ],
-
-        'hr' => [
-            'driver' => 'session',
-            'provider' => 'hr_staff',
-        ],
-
-        'applicant' => [
-            'driver' => 'session',
-            'provider' => 'applicants',
+            'provider' => 'users',
         ],
     ],
 
     'providers' => [
-        'users' => [ // keep default if you still have users table; not required for this flow
+        'users' => [
             'driver' => 'eloquent',
             'model' => App\Models\User::class,
-        ],
-
-        'hr_staff' => [
-            'driver' => 'eloquent',
-            'model' => HRStaff::class,
-        ],
-
-        'applicants' => [
-            'driver' => 'eloquent',
-            'model' => Applicant::class,
         ],
     ],
 
     'passwords' => [
-        // optional: set up brokers separately if you plan to use Forgot Password per guard
-        'hr_staff' => [
-            'provider' => 'hr_staff',
-            'table' => 'password_reset_tokens',
-            'expire' => 60,
-            'throttle' => 60,
-        ],
-        'applicants' => [
-            'provider' => 'applicants',
+        'users' => [
+            'provider' => 'users',
             'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,

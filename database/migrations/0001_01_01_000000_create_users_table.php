@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -14,12 +15,25 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('username')->nullable()->unique();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('role', 20)->default('applicant');
+            $table->boolean('is_hr')->default(false);
+            $table->string('google_id')->nullable()->unique();
+            $table->string('avatar_path')->nullable();
+            $table->string('phone', 30)->nullable();
+            $table->text('about')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
+
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('applicant', 'hr', 'admin'))");
+            // is_hr is kept for the existing middleware; it must always agree with role
+            DB::statement("ALTER TABLE users ADD CONSTRAINT users_is_hr_matches_role CHECK (is_hr = (role IN ('hr', 'admin')))");
+        }
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

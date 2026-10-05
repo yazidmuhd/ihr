@@ -547,6 +547,14 @@ const icons = {
                                     Details</span
                                 >
                             </button>
+
+                            <Link
+                                :href="`/hr/activity?application=${r.id}`"
+                                class="action-btn action-breakdown"
+                                title="Status timeline and every change for this application"
+                            >
+                                <span>History</span>
+                            </Link>
                         </div>
 
                         <!-- Breakdown -->

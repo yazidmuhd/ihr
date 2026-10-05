@@ -3,9 +3,11 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class JobVacancyPosted extends Notification
+// Queued: opening a vacancy notifies every applicant, which must not block the HR request
+class JobVacancyPosted extends Notification implements ShouldQueue
 {
     use Queueable;
 

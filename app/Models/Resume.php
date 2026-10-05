@@ -7,21 +7,24 @@ use Illuminate\Database\Eloquent\Model;
 class Resume extends Model
 {
     protected $fillable = [
-        'applicant_id','application_id',
-        'filename','file_name',
-        'mime_type','mime',
-        'size_bytes','file_size',
-        'storage_path','file_path',
-        'is_active','ai_status','ai_parsed',
+        'applicant_id',
+        'filename', 'path', 'size', 'mime',
+        'is_active', 'sort_order',
+        'ai_status', 'ai_parsed', 'ai_error',
     ];
 
-    public function application()
+    protected $casts = [
+        'is_active' => 'boolean',
+        'ai_parsed' => 'array',
+    ];
+
+    public function applicant()
     {
-        return $this->belongsTo(Application::class);
+        return $this->belongsTo(Applicant::class);
     }
 
-    public function parsed()
+    public function applications()
     {
-        return $this->hasOne(ParsedResume::class);
+        return $this->hasMany(Application::class);
     }
 }

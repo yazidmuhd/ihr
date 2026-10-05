@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Applicant;
 
+use App\Support\DbSchema;
+use App\Http\Controllers\Concerns\ResolvesApplicant;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\ApplicationWithdrawn;
@@ -14,6 +16,8 @@ use Inertia\Response;
 
 class ApplicationsController extends Controller
 {
+    use ResolvesApplicant;
+
     /** List my applications */
     public function index(Request $request): Response
     {
@@ -39,13 +43,13 @@ class ApplicationsController extends Controller
             ->orderByDesc('a.id');
 
         // Only join resumes if table exists AND applications has resume_id
-        $hasResumes = Schema::hasTable('resumes') && Schema::hasColumn('applications', 'resume_id');
+        $hasResumes = DbSchema::hasTable('resumes') && DbSchema::hasColumn('applications', 'resume_id');
         if ($hasResumes) {
             $q->leftJoin('resumes as r', 'r.id', '=', 'a.resume_id');
         }
 
         // Deadline field selection (in case your schema differs)
-        $deadlineSelect = Schema::hasColumn('vacancies', 'closing_date')
+        $deadlineSelect = DbSchema::hasColumn('vacancies', 'closing_date')
             ? DB::raw("to_char(v.closing_date, 'YYYY-MM-DD') as deadline")
             : DB::raw("null as deadline");
 
@@ -110,7 +114,7 @@ class ApplicationsController extends Controller
 
         // vacancy title for notification message
         $vacancyTitle = 'Vacancy';
-        if (!empty($app->vacancy_id) && Schema::hasTable('vacancies')) {
+        if (!empty($app->vacancy_id) && DbSchema::hasTable('vacancies')) {
             $t = DB::table('vacancies')->where('id', $app->vacancy_id)->value('title');
             if ($t) $vacancyTitle = (string) $t;
         }
@@ -142,11 +146,11 @@ class ApplicationsController extends Controller
      */
     private function notifyHrApplicationWithdrawn(int $applicationId, int $vacancyId, string $vacancyTitle, int $applicantId): void
     {
-        if (!Schema::hasTable('users')) return;
+        if (!DbSchema::hasTable('users')) return;
 
         // Applicant name (optional)
         $applicantName = null;
-        if (Schema::hasTable('applicants') && Schema::hasColumn('applicants', 'name')) {
+        if (DbSchema::hasTable('applicants') && DbSchema::hasColumn('applicants', 'name')) {
             $nm = DB::table('applicants')->where('id', $applicantId)->value('name');
             $applicantName = $nm ? (string) $nm : null;
         }
@@ -156,7 +160,7 @@ class ApplicationsController extends Controller
         if (!$ids) return;
 
         // If notifications table doesn't exist, don't throw
-        if (!Schema::hasTable('notifications')) return;
+        if (!DbSchema::hasTable('notifications')) return;
 
         $users = User::whereIn('id', $ids)->get();
         foreach ($users as $hr) {
@@ -183,28 +187,28 @@ class ApplicationsController extends Controller
         $ids = [];
 
         // 1) is_hr boolean
-        if (Schema::hasColumn('users', 'is_hr')) {
+        if (DbSchema::hasColumn('users', 'is_hr')) {
             $ids = array_merge($ids, DB::table('users')->where('is_hr', true)->pluck('id')->all());
         }
 
         // 2) role string
-        if (Schema::hasColumn('users', 'role')) {
+        if (DbSchema::hasColumn('users', 'role')) {
             $ids = array_merge($ids, DB::table('users')
                 ->whereIn(DB::raw('lower(role)'), ['hr', 'hr_staff', 'hr-admin', 'admin', 'superadmin'])
                 ->pluck('id')->all());
         }
 
         // 3) user_type string
-        if (Schema::hasColumn('users', 'user_type')) {
+        if (DbSchema::hasColumn('users', 'user_type')) {
             $ids = array_merge($ids, DB::table('users')
                 ->whereIn(DB::raw('lower(user_type)'), ['hr', 'staff', 'admin'])
                 ->pluck('id')->all());
         }
 
         // 4) vacancy owner (optional)
-        if ($vacancyId && Schema::hasTable('vacancies')) {
+        if ($vacancyId && DbSchema::hasTable('vacancies')) {
             foreach (['created_by', 'user_id', 'hr_user_id', 'owner_user_id'] as $col) {
-                if (Schema::hasColumn('vacancies', $col)) {
+                if (DbSchema::hasColumn('vacancies', $col)) {
                     $ownerId = DB::table('vacancies')->where('id', $vacancyId)->value($col);
                     if ($ownerId) $ids[] = (int) $ownerId;
                     break;
@@ -216,79 +220,4 @@ class ApplicationsController extends Controller
         return $ids;
     }
 
-    /**
-     * Resolve current user's applicant_id.
-     * If $createIfMissing=true, attempt to create/link a minimal applicant record.
-     */
-    protected function resolveApplicantId(bool $createIfMissing = false): ?int
-    {
-        $user = Auth::user();
-        if (!$user) return null;
-
-        if (!Schema::hasTable('applicants')) return null;
-
-        $hasUserIdCol = Schema::hasColumn('applicants', 'user_id');
-        $hasEmailCol  = Schema::hasColumn('applicants', 'email');
-
-        // 1) Find by user_id
-        if ($hasUserIdCol) {
-            $row = DB::table('applicants')->where('user_id', $user->id)->first(['id', 'user_id', 'email']);
-            if ($row?->id) return (int) $row->id;
-        }
-
-        // 2) Find by email
-        if ($hasEmailCol && $user->email) {
-            $row = DB::table('applicants')->where('email', $user->email)->first(['id', 'user_id', 'email']);
-
-            if ($row?->id) {
-                // link user_id if missing
-                if ($hasUserIdCol && empty($row->user_id)) {
-                    $update = ['user_id' => $user->id];
-                    if (Schema::hasColumn('applicants', 'updated_at')) $update['updated_at'] = now();
-                    DB::table('applicants')->where('id', $row->id)->update($update);
-                }
-
-                // Optional: set users.applicant_id
-                if (Schema::hasColumn('users', 'applicant_id')) {
-                    DB::table('users')->where('id', $user->id)->update([
-                        'applicant_id' => $row->id,
-                        'updated_at'   => now(),
-                    ]);
-                }
-
-                return (int) $row->id;
-            }
-        }
-
-        if (!$createIfMissing) return null;
-
-        // 3) Create minimal applicant
-        $payload = [];
-        if ($hasUserIdCol) $payload['user_id'] = $user->id;
-        if ($hasEmailCol)  $payload['email']   = $user->email;
-
-        if (Schema::hasColumn('applicants', 'name')) {
-            $payload['name'] = $user->name ?? $user->email;
-        }
-
-        if (Schema::hasColumn('applicants', 'created_at')) $payload['created_at'] = now();
-        if (Schema::hasColumn('applicants', 'updated_at')) $payload['updated_at'] = now();
-
-        if (empty($payload)) return null;
-
-        try {
-            $id = DB::table('applicants')->insertGetId($payload);
-
-            if (Schema::hasColumn('users', 'applicant_id')) {
-                DB::table('users')->where('id', $user->id)->update([
-                    'applicant_id' => $id,
-                    'updated_at'   => now(),
-                ]);
-            }
-
-            return (int) $id;
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
 }

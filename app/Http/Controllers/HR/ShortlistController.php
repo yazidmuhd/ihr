@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Support\DbSchema;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ class ShortlistController extends Controller
 {
     /* Helpers */
     protected function col(string $t, string ...$n): ?string {
-        foreach ($n as $x) if (Schema::hasColumn($t,$x)) return $x;
+        foreach ($n as $x) if (DbSchema::hasColumn($t,$x)) return $x;
         return null;
     }
     protected function anon(int $id): string {
@@ -78,7 +79,7 @@ class ShortlistController extends Controller
             ->where("a.$a_vac",$vacancyId);
 
         // Left-join interviews if table exists
-        $hasInterviews = Schema::hasTable('interviews');
+        $hasInterviews = DbSchema::hasTable('interviews');
         if ($hasInterviews) {
             $q->leftJoin('interviews as i', 'i.application_id', '=', "a.$a_id");
         }

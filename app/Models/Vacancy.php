@@ -17,32 +17,22 @@ class Vacancy extends Model
         'closing_date',
         'status',
 
-        // legacy single-field requirement
-        'experience_years_required',
-
-        // NEW range-based fields
+        // AI screening criteria
         'experience_min_years',
         'experience_max_years',
-
         'education_required',
-
-        // AI config
         'skills_required',   // JSON array
-        'scoring_config',    // JSON, optional
     ];
 
     protected $casts = [
-        'skills_required'           => 'array',
-        'scoring_config'            => 'array',
-        'closing_date'              => 'date',
-        'experience_min_years'      => 'integer',
-        'experience_max_years'      => 'integer',
-        'experience_years_required' => 'integer',
+        'skills_required'      => 'array',
+        'closing_date'         => 'date',
+        'experience_min_years' => 'integer',
+        'experience_max_years' => 'integer',
     ];
 
-    // Keep this only if you actually have VacancyRule model/table
-    public function rules()
+    public function departmentRecord()
     {
-        return $this->hasMany(VacancyRule::class);
+        return $this->belongsTo(Department::class, 'department', 'name');
     }
 }

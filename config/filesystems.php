@@ -16,6 +16,13 @@ return [
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     /*
+    | Disk for résumés and avatars (see App\Services\Uploads).
+    | "public" for local development, "s3" for staging / production so uploads
+    | survive redeploys and résumés are never publicly reachable.
+    */
+    'uploads_disk' => env('UPLOADS_DISK', 'public'),
+
+    /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
@@ -47,16 +54,20 @@ return [
             'report' => false,
         ],
 
+        // Private bucket (Railway Storage Bucket / AWS S3 / Cloudflare R2).
+        // Files are served through short-lived signed URLs, never publicly.
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
+            'region' => env('AWS_DEFAULT_REGION', 'auto'),
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            'root' => env('AWS_ROOT', ''),   // e.g. "staging" to share one bucket between environments
+            'visibility' => 'private',
+            'throw' => true,
             'report' => false,
         ],
 

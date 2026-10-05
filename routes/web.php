@@ -23,6 +23,7 @@ use App\Http\Controllers\HR\AiRankingController;
 use App\Http\Controllers\HR\ShortlistController;
 use App\Http\Controllers\HR\InterviewController as HRInterviewController;
 use App\Http\Controllers\HR\EmployeeController as HREmployeeController;
+use App\Http\Controllers\HR\ActivityController as HRActivityController;
 
 use App\Http\Controllers\NotificationController;
 
@@ -43,10 +44,10 @@ Route::get('/', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Quick DB debug (optional)
+| Quick DB debug (local environment only)
 |--------------------------------------------------------------------------
 */
-Route::get('/debug/db', function () {
+if (app()->environment('local')) Route::get('/debug/db', function () {
     try {
         $name    = config('database.default');
         $dbInfo  = DB::select('select current_user, current_database(), inet_server_addr() as host, inet_server_port() as port, now() as server_time');
@@ -86,11 +87,11 @@ Route::middleware('guest')->group(function () {
 
     // Register
     Route::get('/register',  [RegisteredUserController::class, 'create'])->name('register');
-    Route::post('/register', [RegisteredUserController::class, 'store'])->name('register.store');
+    Route::post('/register', [RegisteredUserController::class, 'store'])->middleware('throttle:10,60')->name('register.store');   // 10 sign-ups per hour per IP
 
     // Password Reset
     Route::get('/password/request',       [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('/password/email',        [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::post('/password/email',        [PasswordResetLinkController::class, 'store'])->middleware('throttle:5,10')->name('password.email');   // reset e-mails
     Route::get('/password/reset/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
     Route::post('/password/update',       [NewPasswordController::class, 'store'])->name('password.update');
 
@@ -159,12 +160,12 @@ Route::middleware(['auth', 'role:applicant'])->group(function () {
             ->name('app.interviews.respond');
 
         Route::get('/resume', [ResumeController::class, 'index'])->name('app.resume.index');
-        Route::post('/resume', [ResumeController::class, 'store'])->name('app.resume.store');
+        Route::post('/resume', [ResumeController::class, 'store'])->middleware('throttle:20,60')->name('app.resume.store');   // each upload costs an AI call
         Route::post('/resume/reorder', [ResumeController::class, 'reorder'])->name('app.resume.reorder');
 
         Route::patch('/resume/{id}/activate', [ResumeController::class, 'activate'])->whereNumber('id')->name('app.resume.activate');
         Route::delete('/resume/{id}', [ResumeController::class, 'destroy'])->whereNumber('id')->name('app.resume.destroy');
-        Route::post('/resume/{id}/retry', [ResumeController::class, 'retry'])->whereNumber('id')->name('app.resume.retry');
+        Route::post('/resume/{id}/retry', [ResumeController::class, 'retry'])->whereNumber('id')->middleware('throttle:20,60')->name('app.resume.retry');
     });
 });
 
@@ -191,6 +192,8 @@ Route::middleware(['auth', 'role:hr'])->group(function () {
 
     Route::patch('/hr/applications/{id}/status', [AiRankingController::class, 'setStatus'])->whereNumber('id')->name('hr.applications.status');
 
+    Route::get('/hr/activity', [HRActivityController::class, 'index'])->name('hr.activity');
+
     Route::get('/hr/shortlist', [ShortlistController::class, 'vacancies'])->name('hr.shortlist');
     Route::get('/hr/shortlist/vacancy/{id}', [ShortlistController::class, 'byVacancy'])->whereNumber('id')->name('hr.shortlist.vacancy');
     Route::post('/hr/applications/{id}/decision', [ShortlistController::class, 'decision'])->whereNumber('id')->name('hr.applications.decision');
@@ -215,12 +218,12 @@ Route::middleware(['auth', 'role:hr'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| AI debug (optional)
+| AI debug (local environment only)
 |--------------------------------------------------------------------------
 */
-Route::get('/debug/ai', function () {
+if (app()->environment('local')) Route::get('/debug/ai', function () {
     try {
-        return response()->json(\App\Services\AiClient::ping());
+        return response()->json(app(\App\Services\AiClient::class)->ping());
     } catch (\Throwable $e) {
         return response()->json(['ok' => false, 'error' => $e->getMessage()], 500);
     }

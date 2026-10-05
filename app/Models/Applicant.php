@@ -11,17 +11,25 @@ class Applicant extends Model
         'name',
         'email',
         'phone',
+        'location',
+        'linkedin_url',
+        'github_url',
+        'portfolio_url',
+        'website_url',
     ];
-
-    public $timestamps = false; // your table uses created_at only; set to true if you also have updated_at
 
     public function user()
     {
-    return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function applicantProfile()
-{
-    return $this->hasOne(\App\Models\Applicant::class);
-}
+    public function resumes()
+    {
+        return $this->hasMany(Resume::class)->orderBy('sort_order');
+    }
+
+    public function applications()
+    {
+        return $this->hasMany(Application::class);
+    }
 }

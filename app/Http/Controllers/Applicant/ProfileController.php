@@ -3,6 +3,7 @@
 // app/Http/Controllers/Applicant/ProfileController.php
 namespace App\Http\Controllers\Applicant;
 
+use App\Services\Uploads;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,7 @@ class ProfileController extends Controller
                 'phone'    => $u->phone,
                 'about'    => $u->about,
                 // expose a public URL if avatar exists
-                'avatarUrl'=> $u->avatar_path ? Storage::disk('public')->url($u->avatar_path) : null,
+                'avatarUrl'=> Uploads::url($u->avatar_path),
             ],
         ]);
     }
@@ -51,14 +52,11 @@ class ProfileController extends Controller
 
         $u = Auth::user();
 
-        // remove old
-        if ($u->avatar_path) {
-            Storage::disk('public')->delete($u->avatar_path);
-        }
-
-        $path = $request->file('avatar')->store('avatars', 'public');
-        $u->avatar_path = $path;
+        // store the new file first, then remove the old one
+        $old = $u->avatar_path;
+        $u->avatar_path = Uploads::store($request->file('avatar'), 'avatars');
         $u->save();
+        Uploads::delete($old);
 
         return back()->with('status','Avatar updated');
     }
@@ -67,9 +65,10 @@ class ProfileController extends Controller
     {
         $u = Auth::user();
         if ($u->avatar_path) {
-            Storage::disk('public')->delete($u->avatar_path);
+            $old = $u->avatar_path;
             $u->avatar_path = null;
             $u->save();
+            Uploads::delete($old);
         }
         return back()->with('status','Avatar removed');
     }

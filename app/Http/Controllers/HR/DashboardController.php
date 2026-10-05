@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Support\DbSchema;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,15 +16,15 @@ class DashboardController extends Controller
     {
         // ✅ Safe counts (won't crash if table doesn't exist yet)
         $stats = [
-            'vacancies'    => Schema::hasTable('vacancies')    ? (int) DB::table('vacancies')->count()    : 0,
-            'applications' => Schema::hasTable('applications') ? (int) DB::table('applications')->count() : 0,
-            'interviews'   => Schema::hasTable('interviews')   ? (int) DB::table('interviews')->count()   : 0,
-            'employees'    => Schema::hasTable('employees')    ? (int) DB::table('employees')->count()    : 0,
+            'vacancies'    => DbSchema::hasTable('vacancies')    ? (int) DB::table('vacancies')->count()    : 0,
+            'applications' => DbSchema::hasTable('applications') ? (int) DB::table('applications')->count() : 0,
+            'interviews'   => DbSchema::hasTable('interviews')   ? (int) DB::table('interviews')->count()   : 0,
+            'employees'    => DbSchema::hasTable('employees')    ? (int) DB::table('employees')->count()    : 0,
         ];
 
         // Vacancies by status (bar chart)
         $byStatus = ['labels' => [], 'values' => []];
-        if (Schema::hasTable('vacancies')) {
+        if (DbSchema::hasTable('vacancies')) {
             $rowsStatus = DB::table('vacancies')
                 ->select('status', DB::raw('COUNT(*)::int as count'))
                 ->groupBy('status')
@@ -38,7 +39,7 @@ class DashboardController extends Controller
 
         // Open vacancies by department (pie chart)
         $byDept = ['labels' => [], 'values' => []];
-        if (Schema::hasTable('vacancies') && Schema::hasColumn('vacancies', 'department')) {
+        if (DbSchema::hasTable('vacancies') && DbSchema::hasColumn('vacancies', 'department')) {
             $rowsDept = DB::table('vacancies')
                 ->select('department', DB::raw('COUNT(*)::int as count'))
                 ->where('status', 'Open')
@@ -57,16 +58,16 @@ class DashboardController extends Controller
          * Tolerant to applicants schema differences.
          */
         $recentApps = collect();
-        if (Schema::hasTable('applications') && Schema::hasTable('vacancies')) {
-            $hasApplicants = Schema::hasTable('applicants');
+        if (DbSchema::hasTable('applications') && DbSchema::hasTable('vacancies')) {
+            $hasApplicants = DbSchema::hasTable('applicants');
 
             $labelExpr = "'Applicant #' || a.applicant_id"; // default if no applicants table
             if ($hasApplicants) {
                 $nameExpr = null;
-                if (Schema::hasColumn('applicants', 'name')) $nameExpr = 'ap.name';
-                elseif (Schema::hasColumn('applicants', 'full_name')) $nameExpr = 'ap.full_name';
+                if (DbSchema::hasColumn('applicants', 'name')) $nameExpr = 'ap.name';
+                elseif (DbSchema::hasColumn('applicants', 'full_name')) $nameExpr = 'ap.full_name';
 
-                $hasEmail = Schema::hasColumn('applicants', 'email');
+                $hasEmail = DbSchema::hasColumn('applicants', 'email');
 
                 if ($nameExpr && $hasEmail) {
                     $labelExpr = "COALESCE(NULLIF(TRIM($nameExpr), ''), NULLIF(TRIM(ap.email), ''), 'Applicant #' || a.applicant_id)";
@@ -97,7 +98,7 @@ class DashboardController extends Controller
 
         // Latest 6 vacancies
         $latestVacancies = collect();
-        if (Schema::hasTable('vacancies')) {
+        if (DbSchema::hasTable('vacancies')) {
             $latestVacancies = DB::table('vacancies')
                 ->orderByDesc('created_at')
                 ->limit(6)

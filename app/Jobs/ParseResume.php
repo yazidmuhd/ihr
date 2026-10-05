@@ -6,41 +6,28 @@ use App\Services\AiClient;
 use App\Services\DocumentText;
 use App\Services\ResumeEntityExtractor;
 use App\Services\SkillNormalizer;
+use App\Services\Uploads;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 
+/**
+ * Extracts text from an uploaded résumé and stores the AI-parsed profile in
+ * resumes.ai_parsed. Runs on the "high" queue (the worker listens to high,default).
+ */
 class ParseResume implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
-    public int $timeout = 60;
+    public int $timeout = 120;
 
     public function __construct(public int $resumeId)
     {
         $this->onQueue('high');
-    }
-
-    /** Helper: pick the first existing column name */
-    protected function col(string ...$candidates): ?string
-    {
-        foreach ($candidates as $name) {
-            if (Schema::hasColumn('resumes', $name)) return $name;
-        }
-        return null;
-    }
-
-    /** Detect absolute paths on *nix or Windows */
-    protected function isAbsolute(string $p): bool
-    {
-        return str_starts_with($p, '/')
-            || preg_match('/^[A-Za-z]:\\\\/', $p) === 1;
     }
 
     public function handle(AiClient $ai): void
@@ -48,47 +35,11 @@ class ParseResume implements ShouldQueue
         $row = DB::table('resumes')->where('id', $this->resumeId)->first();
         if (!$row) return;
 
-        $cols = [
-            'file_path'   => $this->col('file_path', 'path', 'pathname', 'stored_path'),
-            'storage'     => $this->col('storage_path'),
-            'filename'    => $this->col('file_name', 'filename', 'name'),
-            'mime'        => $this->col('mime', 'mime_type', 'content_type', 'mimetype'),
-            'ai_status'   => $this->col('ai_status'),
-            'ai_parsed'   => $this->col('ai_parsed'),
-            'ai_error'    => $this->col('ai_error'),
-            'updated_at'  => $this->col('updated_at'),
-        ];
-
-        // mark as processing
-        $this->updateStatus($cols, 'processing', null, null);
+        $this->updateStatus('processing');
 
         try {
-            // Prefer storage_path, else file_path
-            $candidate = null;
-
-            if (!empty($cols['storage']) && !empty($row->{$cols['storage']})) {
-                $candidate = (string) $row->{$cols['storage']};
-            } elseif (!empty($cols['file_path']) && !empty($row->{$cols['file_path']})) {
-                $candidate = (string) $row->{$cols['file_path']};
-            }
-
-            if (!$candidate) {
-                throw new \RuntimeException('No stored path for resume (storage_path/file_path missing).');
-            }
-
-            // If relative, convert via public disk; if absolute, keep as-is
-            $abs = $this->isAbsolute($candidate)
-                ? $candidate
-                : Storage::disk('public')->path($candidate);
-
-            if (!is_file($abs)) {
-                throw new \RuntimeException("Resume file not found at: {$abs}");
-            }
-
-            $mime = $cols['mime'] ? ($row->{$cols['mime']} ?? null) : null;
-            $name = $cols['filename'] ? ($row->{$cols['filename']} ?? null) : null;
-
-            $text = DocumentText::extract($abs, $mime, $name);
+            // Works for local and S3 uploads: remote files are copied to a temp file first
+            $text = Uploads::withLocalCopy($row->path, fn (string $abs) => DocumentText::extract($abs, $row->mime, $row->filename));
 
             if (!is_string($text) || mb_strlen(trim($text)) < 50) {
                 throw new \RuntimeException('Could not extract enough readable text from the file.');
@@ -106,22 +57,11 @@ class ParseResume implements ShouldQueue
             // Normalize AI output into consistent keys/arrays
             $normalized = $this->normalizeParsed($parsed, $text, $entities);
 
-            $this->updateStatus(
-                $cols,
-                'done',
-                json_encode($normalized, JSON_UNESCAPED_UNICODE),
-                null
-            );
+            $this->updateStatus('done', json_encode($normalized, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
-            $this->updateStatus(
-                $cols,
-                'error',
-                null,
-                mb_substr($e->getMessage(), 0, 1500)
-            );
+            $this->updateStatus('error', null, mb_substr($e->getMessage(), 0, 1500));
         }
     }
-
     /**
      * Normalize parsed output so your scoring/matching won’t randomly break.
      * Ensures:
@@ -241,35 +181,18 @@ class ParseResume implements ShouldQueue
         return array_values(array_unique($found));
     }
 
-    protected function updateStatus(array $cols, ?string $status, ?string $parsed, ?string $error): void
+    protected function updateStatus(string $status, ?string $parsed = null, ?string $error = null): void
     {
-        $payload = [];
-        if ($cols['ai_status'])  $payload[$cols['ai_status']]  = $status;
-        if ($cols['ai_parsed'])  $payload[$cols['ai_parsed']]  = $parsed;
-        if ($cols['ai_error'])   $payload[$cols['ai_error']]   = $error;
-        if ($cols['updated_at']) $payload[$cols['updated_at']] = now();
-
-        if ($payload) {
-            DB::table('resumes')->where('id', $this->resumeId)->update($payload);
-        }
+        DB::table('resumes')->where('id', $this->resumeId)->update([
+            'ai_status'  => $status,
+            'ai_parsed'  => $parsed,
+            'ai_error'   => $error,
+            'updated_at' => now(),
+        ]);
     }
 
     public function failed(\Throwable $e): void
     {
-        // schema-safe update (don’t hardcode column names)
-        $cols = [
-            'ai_status'  => $this->col('ai_status'),
-            'ai_error'   => $this->col('ai_error'),
-            'updated_at' => $this->col('updated_at'),
-        ];
-
-        $payload = [];
-        if ($cols['ai_status'])  $payload[$cols['ai_status']]  = 'error';
-        if ($cols['ai_error'])   $payload[$cols['ai_error']]   = mb_substr($e->getMessage(), 0, 1500);
-        if ($cols['updated_at']) $payload[$cols['updated_at']] = now();
-
-        if ($payload) {
-            DB::table('resumes')->where('id', $this->resumeId)->update($payload);
-        }
+        $this->updateStatus('error', null, mb_substr($e->getMessage(), 0, 1500));
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Services\Uploads;
+use App\Support\DbSchema;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\InterviewInvited;
@@ -21,9 +23,9 @@ class InterviewController extends Controller
     /** first matching column helper (table-safe) */
     protected function col(string $t, string ...$names): ?string
     {
-        if (!Schema::hasTable($t)) return null;
+        if (!DbSchema::hasTable($t)) return null;
         foreach ($names as $n) {
-            if (Schema::hasColumn($t, $n)) return $n;
+            if (DbSchema::hasColumn($t, $n)) return $n;
         }
         return null;
     }
@@ -33,21 +35,10 @@ class InterviewController extends Controller
         return 'Candidate #' . strtoupper(substr(sha1('i-hr' . $id), 0, 6));
     }
 
-    protected function isUrl(?string $v): bool
-    {
-        if (!$v) return false;
-        return str_starts_with($v, 'http://') || str_starts_with($v, 'https://');
-    }
-
+    /** Résumé link for HR (a short-lived signed URL when uploads are on a private disk) */
     protected function buildPublicUrl(?string $pathOrUrl): ?string
     {
-        if (!$pathOrUrl) return null;
-        if ($this->isUrl($pathOrUrl)) return $pathOrUrl;
-
-        $p = ltrim($pathOrUrl, '/');
-        if (str_starts_with($p, 'storage/')) return '/' . $p;
-
-        return Storage::disk('public')->url($p);
+        return Uploads::url($pathOrUrl);
     }
 
     /** Normalize interview status to DB-safe values */
@@ -68,6 +59,15 @@ class InterviewController extends Controller
     }
 
     /** DB-safe allowed statuses (must match your CHECK constraint) */
+    /** Map form input to the stored interview mode (onsite/online/phone/hybrid/unspecified) */
+    protected function normalizeInterviewMode(?string $value): string
+    {
+        $m = strtolower(trim((string) $value));
+        $m = ['on-site' => 'onsite', 'on_site' => 'onsite', 'remote' => 'online', 'virtual' => 'online'][$m] ?? $m;
+
+        return in_array($m, ['onsite', 'online', 'phone', 'hybrid'], true) ? $m : 'unspecified';
+    }
+
     protected function allowedInterviewStatuses(): array
     {
         return ['invited', 'scheduled', 'done', 'scored', 'no_show', 'cancelled'];
@@ -83,15 +83,15 @@ class InterviewController extends Controller
     /** interview_panels panel_no column (your DB has panel_no) */
     protected function panelNoColumn(): string
     {
-        if (Schema::hasTable('interview_panels') && Schema::hasColumn('interview_panels', 'panel_no')) return 'panel_no';
+        if (DbSchema::hasTable('interview_panels') && DbSchema::hasColumn('interview_panels', 'panel_no')) return 'panel_no';
         abort(500, 'interview_panels.panel_no column not found.');
     }
 
     /** Use rating if exists, else fallback to stars */
     protected function panelScoreColumn(): string
     {
-        if (Schema::hasTable('interview_panels') && Schema::hasColumn('interview_panels', 'rating')) return 'rating';
-        if (Schema::hasTable('interview_panels') && Schema::hasColumn('interview_panels', 'stars')) return 'stars';
+        if (DbSchema::hasTable('interview_panels') && DbSchema::hasColumn('interview_panels', 'rating')) return 'rating';
+        if (DbSchema::hasTable('interview_panels') && DbSchema::hasColumn('interview_panels', 'stars')) return 'stars';
         abort(500, 'interview_panels must have rating or stars column.');
     }
 
@@ -100,15 +100,15 @@ class InterviewController extends Controller
     {
         $d = [];
 
-        if (Schema::hasColumn('interview_panels', 'name')) {
+        if (DbSchema::hasColumn('interview_panels', 'name')) {
             $d['name'] = "Panel {$panelNo}";
         }
         // department is nullable in your table; leave it null
-        if (Schema::hasColumn('interview_panels', 'stars')) {
+        if (DbSchema::hasColumn('interview_panels', 'stars')) {
             $d['stars'] = 0;
         }
         // rating is nullable, but we can default to null to avoid mixing with real 1..5
-        if (Schema::hasColumn('interview_panels', 'rating')) {
+        if (DbSchema::hasColumn('interview_panels', 'rating')) {
             $d['rating'] = null;
         }
 
@@ -118,13 +118,13 @@ class InterviewController extends Controller
     /** ✅ Helper: left join employees to mark is_employee */
     protected function applyEmployeeJoin($q, string $aliasInterview = 'i', string $aliasApp = 'a'): void
     {
-        if (!Schema::hasTable('employees')) return;
+        if (!DbSchema::hasTable('employees')) return;
 
         $e = 'employees';
 
-        $hasInterviewId = Schema::hasColumn($e, 'interview_id');
-        $hasAppId       = Schema::hasColumn($e, 'application_id');
-        $hasApplicantId = Schema::hasColumn($e, 'applicant_id');
+        $hasInterviewId = DbSchema::hasColumn($e, 'interview_id');
+        $hasAppId       = DbSchema::hasColumn($e, 'application_id');
+        $hasApplicantId = DbSchema::hasColumn($e, 'applicant_id');
 
         if ($hasInterviewId) {
             $q->leftJoin("$e as e", "e.interview_id", "=", "{$aliasInterview}.id");
@@ -155,16 +155,16 @@ class InterviewController extends Controller
 
         $userId = null;
 
-        if (Schema::hasTable('applicants')) {
-            if (Schema::hasColumn('applicants', 'user_id')) {
+        if (DbSchema::hasTable('applicants')) {
+            if (DbSchema::hasColumn('applicants', 'user_id')) {
                 $userId = DB::table('applicants')->where('id', $applicantId)->value('user_id');
             }
 
             if (
                 !$userId &&
-                Schema::hasColumn('applicants', 'email') &&
-                Schema::hasTable('users') &&
-                Schema::hasColumn('users', 'email')
+                DbSchema::hasColumn('applicants', 'email') &&
+                DbSchema::hasTable('users') &&
+                DbSchema::hasColumn('users', 'email')
             ) {
                 $email = DB::table('applicants')->where('id', $applicantId)->value('email');
                 if ($email) {
@@ -175,8 +175,8 @@ class InterviewController extends Controller
 
         if (
             !$userId &&
-            Schema::hasTable('users') &&
-            Schema::hasColumn('users', 'applicant_id')
+            DbSchema::hasTable('users') &&
+            DbSchema::hasColumn('users', 'applicant_id')
         ) {
             $userId = DB::table('users')->where('applicant_id', $applicantId)->value('id');
         }
@@ -281,15 +281,15 @@ class InterviewController extends Controller
         $a_status = $this->col($ta, 'status', 'state') ?? 'status';
         $a_resume = $this->col($ta, 'resume_id');
 
-        $p_name  = Schema::hasTable($tp) ? $this->col($tp, 'name', 'full_name') : null;
-        $p_first = Schema::hasTable($tp) ? $this->col($tp, 'first_name', 'firstname') : null;
-        $p_last  = Schema::hasTable($tp) ? $this->col($tp, 'last_name', 'lastname') : null;
-        $p_email = Schema::hasTable($tp) ? $this->col($tp, 'email') : null;
+        $p_name  = DbSchema::hasTable($tp) ? $this->col($tp, 'name', 'full_name') : null;
+        $p_first = DbSchema::hasTable($tp) ? $this->col($tp, 'first_name', 'firstname') : null;
+        $p_last  = DbSchema::hasTable($tp) ? $this->col($tp, 'last_name', 'lastname') : null;
+        $p_email = DbSchema::hasTable($tp) ? $this->col($tp, 'email') : null;
 
-        $r_path = Schema::hasTable($tr) ? $this->col($tr, 'file_path', 'path', 'stored_path', 'resume_path', 'url') : null;
-        $r_name = Schema::hasTable($tr) ? $this->col($tr, 'original_name', 'filename', 'name', 'file_name') : null;
+        $r_path = DbSchema::hasTable($tr) ? $this->col($tr, 'file_path', 'path', 'stored_path', 'resume_path', 'url') : null;
+        $r_name = DbSchema::hasTable($tr) ? $this->col($tr, 'original_name', 'filename', 'name', 'file_name') : null;
 
-        $resumeHasAppId = Schema::hasTable($tr) && Schema::hasColumn($tr, 'application_id');
+        $resumeHasAppId = DbSchema::hasTable($tr) && DbSchema::hasColumn($tr, 'application_id');
 
         // Shortlisted
         $shortlistedQ = DB::table("$ta as a")
@@ -298,9 +298,9 @@ class InterviewController extends Controller
             ->where("a.$a_status", 'shortlisted')
             ->orderByDesc("a.$a_score");
 
-        if (Schema::hasTable($tp)) $shortlistedQ->leftJoin("$tp as p", "p.id", "=", "a.$a_app");
+        if (DbSchema::hasTable($tp)) $shortlistedQ->leftJoin("$tp as p", "p.id", "=", "a.$a_app");
 
-        if (Schema::hasTable($tr)) {
+        if (DbSchema::hasTable($tr)) {
             if ($a_resume && $resumeHasAppId) {
                 $shortlistedQ->leftJoin("$tr as r", function ($join) use ($a_resume) {
                     $join->on("r.id", "=", "a.$a_resume")
@@ -344,9 +344,9 @@ class InterviewController extends Controller
             ->orderByDesc("i.scheduled_at")
             ->orderByDesc("i.id");
 
-        if (Schema::hasTable($tp)) $interviewsQ->leftJoin("$tp as p", "p.id", "=", "a.$a_app");
+        if (DbSchema::hasTable($tp)) $interviewsQ->leftJoin("$tp as p", "p.id", "=", "a.$a_app");
 
-        if (Schema::hasTable($tr)) {
+        if (DbSchema::hasTable($tr)) {
             if ($a_resume && $resumeHasAppId) {
                 $interviewsQ->leftJoin("$tr as r", function ($join) use ($a_resume) {
                     $join->on("r.id", "=", "a.$a_resume")
@@ -391,9 +391,9 @@ class InterviewController extends Controller
                 ($r_path ? DB::raw("r.$r_path as resume_path") : null),
                 ($r_name ? DB::raw("r.$r_name as resume_name") : null),
 
-                (Schema::hasTable('employees') ? DB::raw("CASE WHEN e.id IS NULL THEN false ELSE true END as is_employee") : null),
-                (Schema::hasTable('employees') ? DB::raw("e.id as employee_id") : null),
-                (Schema::hasTable('employees') && Schema::hasColumn('employees', 'employee_no') ? DB::raw("e.employee_no as employee_no") : null),
+                (DbSchema::hasTable('employees') ? DB::raw("CASE WHEN e.id IS NULL THEN false ELSE true END as is_employee") : null),
+                (DbSchema::hasTable('employees') ? DB::raw("e.id as employee_id") : null),
+                (DbSchema::hasTable('employees') && DbSchema::hasColumn('employees', 'employee_no') ? DB::raw("e.employee_no as employee_no") : null),
             ]))
             ->map(function ($r) {
                 $r->anon_name  = $this->anon((int)($r->applicant_id ?? 0));
@@ -420,14 +420,14 @@ class InterviewController extends Controller
         $r = 'resumes';
 
         $a_resume = $this->col($a, 'resume_id');
-        $p_name   = Schema::hasTable($p) ? $this->col($p, 'name', 'full_name') : null;
-        $p_first  = Schema::hasTable($p) ? $this->col($p, 'first_name', 'firstname') : null;
-        $p_last   = Schema::hasTable($p) ? $this->col($p, 'last_name', 'lastname') : null;
-        $p_email  = Schema::hasTable($p) ? $this->col($p, 'email') : null;
+        $p_name   = DbSchema::hasTable($p) ? $this->col($p, 'name', 'full_name') : null;
+        $p_first  = DbSchema::hasTable($p) ? $this->col($p, 'first_name', 'firstname') : null;
+        $p_last   = DbSchema::hasTable($p) ? $this->col($p, 'last_name', 'lastname') : null;
+        $p_email  = DbSchema::hasTable($p) ? $this->col($p, 'email') : null;
 
-        $r_path   = Schema::hasTable($r) ? $this->col($r, 'file_path', 'path', 'stored_path', 'resume_path', 'url') : null;
-        $r_name   = Schema::hasTable($r) ? $this->col($r, 'original_name', 'filename', 'name', 'file_name') : null;
-        $resumeHasAppId = Schema::hasTable($r) && Schema::hasColumn($r, 'application_id');
+        $r_path   = DbSchema::hasTable($r) ? $this->col($r, 'file_path', 'path', 'stored_path', 'resume_path', 'url') : null;
+        $r_name   = DbSchema::hasTable($r) ? $this->col($r, 'original_name', 'filename', 'name', 'file_name') : null;
+        $resumeHasAppId = DbSchema::hasTable($r) && DbSchema::hasColumn($r, 'application_id');
 
         $q = DB::table("$i as i")
             ->join("$a as a", 'a.id', '=', 'i.application_id')
@@ -435,9 +435,9 @@ class InterviewController extends Controller
             ->orderByDesc('i.scheduled_at')
             ->orderByDesc('i.id');
 
-        if (Schema::hasTable($p)) $q->leftJoin("$p as p", 'p.id', '=', 'a.applicant_id');
+        if (DbSchema::hasTable($p)) $q->leftJoin("$p as p", 'p.id', '=', 'a.applicant_id');
 
-        if (Schema::hasTable($r)) {
+        if (DbSchema::hasTable($r)) {
             if ($a_resume && $resumeHasAppId) {
                 $q->leftJoin("$r as r", function ($join) use ($a_resume) {
                     $join->on("r.id", "=", "a.$a_resume")
@@ -478,9 +478,9 @@ class InterviewController extends Controller
             ($r_path ? DB::raw("r.$r_path as resume_path") : null),
             ($r_name ? DB::raw("r.$r_name as resume_name") : null),
 
-            (Schema::hasTable('employees') ? DB::raw("CASE WHEN e.id IS NULL THEN false ELSE true END as is_employee") : null),
-            (Schema::hasTable('employees') ? DB::raw("e.id as employee_id") : null),
-            (Schema::hasTable('employees') && Schema::hasColumn('employees', 'employee_no') ? DB::raw("e.employee_no as employee_no") : null),
+            (DbSchema::hasTable('employees') ? DB::raw("CASE WHEN e.id IS NULL THEN false ELSE true END as is_employee") : null),
+            (DbSchema::hasTable('employees') ? DB::raw("e.id as employee_id") : null),
+            (DbSchema::hasTable('employees') && DbSchema::hasColumn('employees', 'employee_no') ? DB::raw("e.employee_no as employee_no") : null),
         ]))
         ->map(function ($row) {
             $row->anon_name  = $this->anon((int)($row->applicant_id ?? 0));
@@ -491,7 +491,7 @@ class InterviewController extends Controller
         $ids = $interviews->pluck('id')->all();
         $panels = collect();
 
-        if (!empty($ids) && Schema::hasTable('interview_panels')) {
+        if (!empty($ids) && DbSchema::hasTable('interview_panels')) {
             $panelCol = $this->panelNoColumn();
             $rows = DB::table('interview_panels')
                 ->whereIn('interview_id', $ids)
@@ -529,6 +529,7 @@ class InterviewController extends Controller
         foreach (['mode', 'location', 'meeting_link', 'extra_info'] as $k) {
             if (array_key_exists($k, $data)) $update[$k] = $data[$k];
         }
+        if (array_key_exists('mode', $update)) $update['mode'] = $this->normalizeInterviewMode($update['mode']);
 
         if (array_key_exists('scheduled_at', $data)) {
             $update['scheduled_at'] = $data['scheduled_at'] ?: null;
@@ -554,7 +555,7 @@ class InterviewController extends Controller
         abort_unless($app, 404, 'Application not found.');
 
         $vacancyTitle = null;
-        if (!empty($app->vacancy_id) && Schema::hasTable('vacancies')) {
+        if (!empty($app->vacancy_id) && DbSchema::hasTable('vacancies')) {
             $vacancyTitle = DB::table('vacancies')->where('id', $app->vacancy_id)->value('title');
         }
 
@@ -572,7 +573,7 @@ class InterviewController extends Controller
                     'updated_at'       => $now,
                 ];
 
-                if (Schema::hasColumn('interviews', 'scheduled_at')) {
+                if (DbSchema::hasColumn('interviews', 'scheduled_at')) {
                     $update['scheduled_at'] = null;
                 }
 
@@ -598,14 +599,14 @@ class InterviewController extends Controller
         $payload = [
             'applicant_id' => $app->applicant_id ?? null,
             'vacancy_id'   => $app->vacancy_id ?? null,
-            'mode'         => (string)$req->input('mode', 'unspecified'),
+            'mode'         => $this->normalizeInterviewMode($req->input('mode')),
             'location'     => $req->input('location'),
             'meeting_link' => $req->input('meeting_link'),
             'extra_info'   => $req->input('extra_info'),
             'updated_at'   => $now,
         ];
 
-        if (Schema::hasColumn('interviews', 'created_by') && $hrUserId) {
+        if (DbSchema::hasColumn('interviews', 'created_by') && $hrUserId) {
             $payload['created_by'] = $hrUserId;
         }
 
@@ -804,23 +805,23 @@ class InterviewController extends Controller
 
         $update = ['updated_at' => $now];
 
-        if ($req->has('name') && Schema::hasColumn('interview_panels', 'name')) {
+        if ($req->has('name') && DbSchema::hasColumn('interview_panels', 'name')) {
             $nm = trim((string)$req->input('name'));
             $update['name'] = $nm !== '' ? $nm : "Panel {$panelNo}";
         }
 
         // store rating/stars
-        if ($scoreCol === 'rating' && Schema::hasColumn('interview_panels', 'rating')) {
+        if ($scoreCol === 'rating' && DbSchema::hasColumn('interview_panels', 'rating')) {
             $update['rating'] = $rating;
         }
-        if ($scoreCol === 'stars' && Schema::hasColumn('interview_panels', 'stars')) {
+        if ($scoreCol === 'stars' && DbSchema::hasColumn('interview_panels', 'stars')) {
             $update['stars'] = $rating ?? 0;
         }
 
-        if ($req->has('notes') && Schema::hasColumn('interview_panels', 'notes')) {
+        if ($req->has('notes') && DbSchema::hasColumn('interview_panels', 'notes')) {
             $update['notes'] = $req->input('notes');
         }
-        if ($req->has('comment') && Schema::hasColumn('interview_panels', 'comment')) {
+        if ($req->has('comment') && DbSchema::hasColumn('interview_panels', 'comment')) {
             $update['comment'] = $req->input('comment');
         }
 
@@ -844,18 +845,18 @@ class InterviewController extends Controller
         $st = $this->normalizeInterviewStatus((string)($interview->status ?? ''));
         abort_unless($st === 'scored', 403, 'Please Finalize score first (status must be SCORED).');
 
-        abort_unless(Schema::hasTable('employees'), 500, 'employees table not found. Please create employees table migration.');
+        abort_unless(DbSchema::hasTable('employees'), 500, 'employees table not found. Please create employees table migration.');
 
         $app = DB::table('applications')->where('id', $interview->application_id)->first();
         abort_unless($app, 404, 'Application not found.');
 
         $applicant = null;
-        if (Schema::hasTable('applicants') && isset($app->applicant_id)) {
+        if (DbSchema::hasTable('applicants') && isset($app->applicant_id)) {
             $applicant = DB::table('applicants')->where('id', $app->applicant_id)->first();
         }
 
         $vacancy = null;
-        if (Schema::hasTable('vacancies') && isset($app->vacancy_id)) {
+        if (DbSchema::hasTable('vacancies') && isset($app->vacancy_id)) {
             $vacancy = DB::table('vacancies')->where('id', $app->vacancy_id)->first();
         }
 
@@ -874,8 +875,8 @@ class InterviewController extends Controller
         $e_applicationId = $this->col($te, 'application_id');
         $e_interviewId   = $this->col($te, 'interview_id');
 
-        $hasCreatedAt = Schema::hasColumn($te, 'created_at');
-        $hasUpdatedAt = Schema::hasColumn($te, 'updated_at');
+        $hasCreatedAt = DbSchema::hasColumn($te, 'created_at');
+        $hasUpdatedAt = DbSchema::hasColumn($te, 'updated_at');
 
         // prevent duplicates
         $existingQ = DB::table($te);
@@ -928,27 +929,25 @@ class InterviewController extends Controller
         if ($e_applicationId) $payload[$e_applicationId] = $interview->application_id;
         if ($e_interviewId)   $payload[$e_interviewId] = $id;
 
+        if (DbSchema::hasColumn($te, 'hr_user_id')) $payload['hr_user_id'] = Auth::id();
+
         if ($hasCreatedAt) $payload['created_at'] = $now;
         if ($hasUpdatedAt) $payload['updated_at'] = $now;
 
-        DB::table('employees')->insert($payload);
+        // Employee row, interview and application change together or not at all
+        DB::transaction(function () use ($payload, $id, $interview, $now) {
+            DB::table('employees')->insert($payload);
 
-        // update interview + application
-        $intUpd = ['updated_at' => $now];
-        if (Schema::hasColumn('interviews', 'candidate_status')) $intUpd['candidate_status'] = 'hired';
-        if (Schema::hasColumn('interviews', 'candidate_reason')) $intUpd['candidate_reason'] = 'converted_to_employee';
-        DB::table('interviews')->where('id', $id)->update($intUpd);
+            $intUpd = ['updated_at' => $now];
+            if (DbSchema::hasColumn('interviews', 'candidate_status')) $intUpd['candidate_status'] = 'hired';
+            if (DbSchema::hasColumn('interviews', 'candidate_reason')) $intUpd['candidate_reason'] = 'converted_to_employee';
+            DB::table('interviews')->where('id', $id)->update($intUpd);
 
-        if (Schema::hasColumn('applications', 'status')) {
-            try {
-                DB::table('applications')->where('id', $interview->application_id)->update([
-                    'status' => 'hired',
-                    'updated_at' => $now,
-                ]);
-            } catch (\Throwable $e) {
-                // ignore
-            }
-        }
+            DB::table('applications')->where('id', $interview->application_id)->update([
+                'status'     => 'hired',
+                'updated_at' => $now,
+            ]);
+        });
 
         // ✅ Notify applicant: hired (database only via InterviewOutcome)
         $this->notifyApplicantInterviewOutcome([

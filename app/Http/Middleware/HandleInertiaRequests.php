@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Uploads;
 use Inertia\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Vite;
@@ -52,9 +53,7 @@ class HandleInertiaRequests extends Middleware
             'name'      => $request->user()->name,
             'is_hr'     => $request->user()->is_hr ?? false,
             'email'     => $request->user()->email ?? null,
-            'avatarUrl' => $request->user()->avatar_path
-                ? Storage::disk('public')->url($request->user()->avatar_path)
-                : null,
+            'avatarUrl' => Uploads::url($request->user()->avatar_path),
         ]
         : null,
 ],

@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Services\ActivityFeed;
+use App\Services\Uploads;
+use App\Support\DbSchema;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -15,26 +18,15 @@ class EmployeeController extends Controller
     protected function col(string $t, string ...$names): ?string
     {
         foreach ($names as $n) {
-            if (Schema::hasTable($t) && Schema::hasColumn($t, $n)) return $n;
+            if (DbSchema::hasTable($t) && DbSchema::hasColumn($t, $n)) return $n;
         }
         return null;
     }
 
-    protected function isUrl(?string $v): bool
-    {
-        if (!$v) return false;
-        return str_starts_with($v, 'http://') || str_starts_with($v, 'https://');
-    }
-
+    /** Résumé link for HR (a short-lived signed URL when uploads are on a private disk) */
     protected function buildPublicUrl(?string $pathOrUrl): ?string
     {
-        if (!$pathOrUrl) return null;
-        if ($this->isUrl($pathOrUrl)) return $pathOrUrl;
-
-        $p = ltrim($pathOrUrl, '/');
-        if (str_starts_with($p, 'storage/')) return '/' . $p;
-
-        return Storage::disk('public')->url($p);
+        return Uploads::url($pathOrUrl);
     }
 
     /**
@@ -44,7 +36,7 @@ class EmployeeController extends Controller
      */
     public function index(): Response
     {
-        abort_unless(Schema::hasTable('employees'), 500, 'employees table not found.');
+        abort_unless(DbSchema::hasTable('employees'), 500, 'employees table not found.');
 
         // Employees columns (support variants)
         $eName   = $this->col('employees', 'name', 'full_name');
@@ -61,19 +53,19 @@ class EmployeeController extends Controller
         $joinedApplications = false;
         $joinedVacancies   = false;
 
-        if (Schema::hasTable('applicants') && $eApplId) {
+        if (DbSchema::hasTable('applicants') && $eApplId) {
             $q->leftJoin('applicants as a', 'a.id', '=', "e.$eApplId");
             $joinedApplicants = true;
         }
 
-        if (Schema::hasTable('applications') && $eAppId) {
+        if (DbSchema::hasTable('applications') && $eAppId) {
             $q->leftJoin('applications as ap', 'ap.id', '=', "e.$eAppId");
             $joinedApplications = true;
         }
 
         // Join vacancies ONLY if we joined applications (ap alias must exist)
         $apVacancyId = $this->col('applications', 'vacancy_id', 'job_id');
-        if ($joinedApplications && Schema::hasTable('vacancies') && $apVacancyId) {
+        if ($joinedApplications && DbSchema::hasTable('vacancies') && $apVacancyId) {
             $q->leftJoin('vacancies as v', 'v.id', '=', "ap.$apVacancyId");
             $joinedVacancies = true;
         }
@@ -95,19 +87,19 @@ class EmployeeController extends Controller
             $eAppId  ? DB::raw("e.\"$eAppId\" as \"application_id\"") : DB::raw("NULL as \"application_id\""),
 
             // Timestamps (if present)
-            Schema::hasColumn('employees', 'created_at') ? 'e.created_at' : DB::raw("NULL as created_at"),
-            Schema::hasColumn('employees', 'updated_at') ? 'e.updated_at' : DB::raw("NULL as updated_at"),
+            DbSchema::hasColumn('employees', 'created_at') ? 'e.created_at' : DB::raw("NULL as created_at"),
+            DbSchema::hasColumn('employees', 'updated_at') ? 'e.updated_at' : DB::raw("NULL as updated_at"),
         ];
 
-        if ($joinedApplicants && Schema::hasColumn('applicants', 'email')) {
+        if ($joinedApplicants && DbSchema::hasColumn('applicants', 'email')) {
             $select[] = DB::raw('a.email as applicant_email');
         } else {
             $select[] = DB::raw('NULL as applicant_email');
         }
 
-        if ($joinedVacancies && Schema::hasColumn('vacancies', 'title')) {
+        if ($joinedVacancies && DbSchema::hasColumn('vacancies', 'title')) {
             $select[] = DB::raw('v.title as vacancy_title');
-        } elseif ($joinedVacancies && Schema::hasColumn('vacancies', 'name')) {
+        } elseif ($joinedVacancies && DbSchema::hasColumn('vacancies', 'name')) {
             $select[] = DB::raw('v.name as vacancy_title');
         } else {
             $select[] = DB::raw('NULL as vacancy_title');
@@ -123,7 +115,7 @@ class EmployeeController extends Controller
     /** ✅ Employee detail + candidate history (also schema-safe for applicant_id/application_id/hr_user_id) */
     public function show(int $id): Response
     {
-        abort_unless(Schema::hasTable('employees'), 500, 'employees table not found.');
+        abort_unless(DbSchema::hasTable('employees'), 500, 'employees table not found.');
 
         $raw = DB::table('employees')->where('id', $id)->first();
         abort_unless($raw, 404, 'Employee not found.');
@@ -150,7 +142,7 @@ class EmployeeController extends Controller
 
         // Candidate (applicant)
         $candidate = null;
-        if (Schema::hasTable('applicants') && !empty($employee->applicant_id)) {
+        if (DbSchema::hasTable('applicants') && !empty($employee->applicant_id)) {
             $candidate = DB::table('applicants')->where('id', $employee->applicant_id)->first();
         }
 
@@ -159,10 +151,10 @@ class EmployeeController extends Controller
         $vacancy = null;
         $resume = null;
 
-        if (Schema::hasTable('applications') && !empty($employee->application_id)) {
+        if (DbSchema::hasTable('applications') && !empty($employee->application_id)) {
             $application = DB::table('applications')->where('id', $employee->application_id)->first();
 
-            if ($application && Schema::hasTable('vacancies')) {
+            if ($application && DbSchema::hasTable('vacancies')) {
                 $vacIdCol = $this->col('applications', 'vacancy_id', 'job_id');
                 if ($vacIdCol && !empty($application->{$vacIdCol})) {
                     $vacancy = DB::table('vacancies')->where('id', $application->{$vacIdCol})->first();
@@ -170,7 +162,7 @@ class EmployeeController extends Controller
             }
 
             // resume (if applications has resume_id)
-            if ($application && Schema::hasTable('resumes') && Schema::hasColumn('applications', 'resume_id')) {
+            if ($application && DbSchema::hasTable('resumes') && DbSchema::hasColumn('applications', 'resume_id')) {
                 $resumeId = $application->resume_id ?? null;
                 if ($resumeId) {
                     $rPath = $this->col('resumes', 'file_path', 'path', 'stored_path', 'resume_path', 'url');
@@ -192,17 +184,17 @@ class EmployeeController extends Controller
         $interview = null;
         $panels = [];
 
-        if (Schema::hasTable('interviews') && !empty($employee->application_id)) {
+        if (DbSchema::hasTable('interviews') && !empty($employee->application_id)) {
             $interview = DB::table('interviews')
                 ->where('application_id', $employee->application_id)
                 ->orderByDesc('scheduled_at')
                 ->orderByDesc('id')
                 ->first();
 
-            if ($interview && Schema::hasTable('interview_panels')) {
-                $panelNoCol = Schema::hasColumn('interview_panels', 'panel_no')
+            if ($interview && DbSchema::hasTable('interview_panels')) {
+                $panelNoCol = DbSchema::hasColumn('interview_panels', 'panel_no')
                     ? 'panel_no'
-                    : (Schema::hasColumn('interview_panels', 'panel') ? 'panel' : null);
+                    : (DbSchema::hasColumn('interview_panels', 'panel') ? 'panel' : null);
 
                 if ($panelNoCol) {
                     $panels = DB::table('interview_panels')
@@ -226,6 +218,7 @@ class EmployeeController extends Controller
             'resume'       => $resume,
             'interview'    => $interview,
             'panels'       => $panels,
+            'timeline'     => $application ? ActivityFeed::statusTimeline((int) $application->id) : [],
         ]);
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Applicant;
 
+use App\Support\DbSchema;
+use App\Http\Controllers\Concerns\ResolvesApplicant;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +14,8 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    use ResolvesApplicant;
+
     public function index(Request $request): Response
     {
         $user = Auth::user();
@@ -79,11 +83,11 @@ class DashboardController extends Controller
 
     private function hasActiveResume(int $applicantId): bool
     {
-        if (!Schema::hasTable('resumes')) return false;
+        if (!DbSchema::hasTable('resumes')) return false;
 
-        $activeCol = Schema::hasColumn('resumes', 'is_active')
+        $activeCol = DbSchema::hasColumn('resumes', 'is_active')
             ? 'is_active'
-            : (Schema::hasColumn('resumes', 'active') ? 'active' : null);
+            : (DbSchema::hasColumn('resumes', 'active') ? 'active' : null);
 
         $q = DB::table('resumes')->where('applicant_id', $applicantId);
 
@@ -95,9 +99,9 @@ class DashboardController extends Controller
     private function countInterviewsForApplicant(int $applicantId): int
     {
         // ✅ If you have interviews table, count real interview rows
-        if (Schema::hasTable('interviews')) {
+        if (DbSchema::hasTable('interviews')) {
             // Case A: interviews.application_id exists
-            if (Schema::hasColumn('interviews', 'application_id')) {
+            if (DbSchema::hasColumn('interviews', 'application_id')) {
                 return (int) DB::table('interviews as i')
                     ->join('applications as a', 'a.id', '=', 'i.application_id')
                     ->where('a.applicant_id', $applicantId)
@@ -105,7 +109,7 @@ class DashboardController extends Controller
             }
 
             // Case B: interviews.applicant_id exists
-            if (Schema::hasColumn('interviews', 'applicant_id')) {
+            if (DbSchema::hasColumn('interviews', 'applicant_id')) {
                 return (int) DB::table('interviews')
                     ->where('applicant_id', $applicantId)
                     ->count('id');
@@ -122,87 +126,4 @@ class DashboardController extends Controller
             ->count();
     }
 
-    /**
-     * ✅ Robust resolver:
-     * 1) users.applicant_id (MOST IMPORTANT for your case)
-     * 2) applicants.user_id
-     * 3) applicants.email (if column exists)
-     * 4) create minimal applicants row (optional)
-     */
-    protected function resolveApplicantId(bool $createIfMissing = false): ?int
-    {
-        $user = Auth::user();
-        if (!$user) return null;
-
-        if (!Schema::hasTable('applicants')) return null;
-
-        // 1) Use users.applicant_id if it exists (this fixes your mismatch case)
-        if (Schema::hasColumn('users', 'applicant_id')) {
-            $ua = (int) ($user->applicant_id ?? 0);
-            if ($ua > 0) {
-                $exists = DB::table('applicants')->where('id', $ua)->exists();
-                if ($exists) {
-                    // If applicants.user_id exists, ensure it's linked
-                    if (Schema::hasColumn('applicants', 'user_id')) {
-                        DB::table('applicants')->where('id', $ua)->update([
-                            'user_id'    => $user->id,
-                            'updated_at' => now(),
-                        ]);
-                    }
-                    return $ua;
-                }
-            }
-        }
-
-        // 2) Try by applicants.user_id
-        if (Schema::hasColumn('applicants', 'user_id')) {
-            $row = DB::table('applicants')->where('user_id', $user->id)->first();
-            if ($row?->id) return (int) $row->id;
-        }
-
-        // 3) Try by email if applicants.email exists
-        if (Schema::hasColumn('applicants', 'email')) {
-            $row = DB::table('applicants')->where('email', $user->email)->first();
-            if ($row?->id) {
-                // Link it to this user to prevent duplicates
-                if (Schema::hasColumn('applicants', 'user_id')) {
-                    DB::table('applicants')->where('id', $row->id)->update([
-                        'user_id'    => $user->id,
-                        'updated_at' => now(),
-                    ]);
-                }
-                if (Schema::hasColumn('users', 'applicant_id')) {
-                    DB::table('users')->where('id', $user->id)->update([
-                        'applicant_id' => $row->id,
-                        'updated_at'   => now(),
-                    ]);
-                }
-                return (int) $row->id;
-            }
-        }
-
-        if (!$createIfMissing) return null;
-
-        // 4) Create minimal applicant record
-        $payload = [];
-        if (Schema::hasColumn('applicants', 'user_id')) $payload['user_id'] = $user->id;
-        if (Schema::hasColumn('applicants', 'email'))   $payload['email']   = $user->email;
-        if (Schema::hasColumn('applicants', 'name'))    $payload['name']    = $user->name ?? $user->email;
-
-        if (Schema::hasColumn('applicants', 'created_at')) $payload['created_at'] = now();
-        if (Schema::hasColumn('applicants', 'updated_at')) $payload['updated_at'] = now();
-
-        if (empty($payload)) return null;
-
-        $id = DB::table('applicants')->insertGetId($payload);
-
-        if (Schema::hasColumn('users', 'applicant_id')) {
-            DB::table('users')->where('id', $user->id)->update([
-                'applicant_id' => $id,
-                'updated_at'   => now(),
-            ]);
-        }
-
-        return (int) $id;
-    }
 }

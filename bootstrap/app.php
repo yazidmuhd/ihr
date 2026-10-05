@@ -13,9 +13,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Real visitor IP from the hosting proxy (config/network.php), before anything reads $request->ip()
+        $middleware->prepend(\App\Http\Middleware\UseClientIpHeader::class);
+
+        // HTTPS ends at the hosting proxy, which forwards plain HTTP plus X-Forwarded-Proto.
+        // Trust only that header (not X-Forwarded-For) so links and signed URLs use https://.
+        $middleware->trustProxies(at: '*', headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO);
+        $middleware->append(\App\Http\Middleware\NoIndexOutsideProduction::class);
+
         $middleware->web(append: [
+            // Office / VPN IP allowlist; runs after the session starts so it can see HR accounts
+            \App\Http\Middleware\RestrictToAllowedIps::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            \App\Http\Middleware\SetAuditUser::class,
         ]);
 
         // Register our “role” alias so routes can use ->middleware('role:hr')

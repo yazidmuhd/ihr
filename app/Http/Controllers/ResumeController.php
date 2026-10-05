@@ -2,67 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesApplicant;
 use App\Jobs\ParseResume;
+use App\Services\Uploads;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ResumeController extends Controller
 {
-    /** Return the first column name that exists on the resumes table. */
-    protected function col(string ...$candidates): ?string
-    {
-        foreach ($candidates as $name) {
-            if (Schema::hasColumn('resumes', $name)) return $name;
-        }
-        return null;
-    }
+    use ResolvesApplicant;
 
     public function index(): Response
     {
         $applicantId = $this->resolveApplicantId(createIfMissing: true);
 
-        $map = [
-            'file_name'   => $this->col('file_name', 'filename', 'name'),
-            'file_path'   => $this->col('file_path', 'path', 'pathname', 'stored_path'),
-            'file_size'   => $this->col('file_size', 'size', 'bytes', 'filesize', 'size_bytes'),
-            'mime'        => $this->col('mime', 'mime_type', 'content_type', 'mimetype'),
-            'is_active'   => $this->col('is_active', 'active', 'is_primary'),
-            'ai_status'   => $this->col('ai_status'),
-            'ai_parsed'   => $this->col('ai_parsed'),
-            'ai_error'    => $this->col('ai_error'),
-            'created_at'  => $this->col('created_at', 'createdOn', 'created'),
-            // ✅ for reorder
-            'sort_order'  => $this->col('sort_order', 'position', 'order', 'display_order', 'sort'),
-        ];
-
-        $select = ['id', 'applicant_id'];
-        foreach ($map as $alias => $col) {
-            if ($col) $select[] = DB::raw("\"$col\" as \"$alias\"");
-        }
-
-        $q = DB::table('resumes')->where('applicant_id', $applicantId);
-
-        // ✅ Sort: active first, then saved order, then newest
-        if (!empty($map['is_active'])) {
-            $q->orderByDesc($map['is_active']);
-        }
-
-        if (!empty($map['sort_order'])) {
-            $q->orderBy($map['sort_order']);
-        }
-
-        $q->orderByDesc($map['created_at'] ?? 'id');
-
-        $rows = $q->get($select)->map(function ($r) {
-            $path = $r->file_path ?? null;
-            $r->url = $path ? Storage::disk('public')->url($path) : null;
-            return $r;
-        });
+        $rows = DB::table('resumes')
+            ->where('applicant_id', $applicantId)
+            ->orderByDesc('is_active')
+            ->orderBy('sort_order')
+            ->orderByDesc('created_at')
+            ->get([
+                'id', 'applicant_id',
+                'filename as file_name', 'path as file_path', 'size as file_size', 'mime',
+                'is_active', 'ai_status', 'ai_parsed', 'ai_error', 'created_at', 'sort_order',
+            ])
+            ->map(function ($r) {
+                $r->url = Uploads::url($r->file_path);
+                return $r;
+            });
 
         return Inertia::render('Applicant/Resume/Index', ['rows' => $rows]);
     }
@@ -72,128 +41,60 @@ class ResumeController extends Controller
         $applicantId = $this->resolveApplicantId(createIfMissing: true);
 
         $data = $request->validate([
-            // ✅ match Vue: pdf/doc/docx and 5MB
-            'resume'         => 'required|file|mimes:pdf,doc,docx|max:5120',
-            'application_id' => 'nullable|integer',
+            'resume' => 'required|file|mimes:pdf,doc,docx|max:5120',
         ]);
 
-        $file     = $data['resume'];
-        $path     = $file->store('resumes', 'public');          // relative (public disk)
-        $abs      = Storage::disk('public')->path($path);       // absolute local path
-        $original = $file->getClientOriginalName();
-        $size     = $file->getSize();
-        $mime     = $file->getClientMimeType();
+        $file = $data['resume'];
+        $path = Uploads::store($file, 'resumes');
 
-        $cols = [
-            'file_name'      => $this->col('file_name', 'filename', 'name'),
-            'file_path'      => $this->col('file_path', 'path', 'pathname', 'stored_path'),
-            'storage_path'   => $this->col('storage_path'),
-            'file_size'      => $this->col('file_size', 'size', 'bytes', 'filesize', 'size_bytes'),
-            'mime'           => $this->col('mime', 'mime_type', 'content_type', 'mimetype'),
-            'is_active'      => $this->col('is_active', 'active', 'is_primary'),
-            'ai_status'      => $this->col('ai_status'),
-            'ai_parsed'      => $this->col('ai_parsed'),
-            'ai_error'       => $this->col('ai_error'),
-            'application_id' => $this->col('application_id', 'job_application_id'),
-            'sort_order'     => $this->col('sort_order', 'position', 'order', 'display_order', 'sort'),
-            'created_at'     => $this->col('created_at'),
-            'updated_at'     => $this->col('updated_at'),
-        ];
+        $id = DB::transaction(function () use ($applicantId, $file, $path) {
+            $hasActive = DB::table('resumes')->where('applicant_id', $applicantId)->where('is_active', true)->exists();
+            $nextSort  = (int) DB::table('resumes')->where('applicant_id', $applicantId)->max('sort_order') + 1;
 
-        $activeCol = $cols['is_active'] ?? 'is_active';
+            return DB::table('resumes')->insertGetId([
+                'applicant_id' => $applicantId,
+                'filename'     => $file->getClientOriginalName(),
+                'path'         => $path,
+                'size'         => $file->getSize(),
+                'mime'         => $file->getClientMimeType(),
+                'is_active'    => !$hasActive,   // first résumé becomes the active one
+                'sort_order'   => $nextSort,
+                'ai_status'    => 'pending',
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ]);
+        });
 
-        $hasActive = DB::table('resumes')
-            ->where('applicant_id', $applicantId)
-            ->when(Schema::hasColumn('resumes', $activeCol), fn($q) => $q->where($activeCol, true))
-            ->exists();
-
-        // ✅ new resume goes to bottom (if sort column exists)
-        $nextSort = null;
-        if (!empty($cols['sort_order'])) {
-            $max = DB::table('resumes')->where('applicant_id', $applicantId)->max($cols['sort_order']);
-            $nextSort = ((int)($max ?? 0)) + 1;
-        }
-
-        $insert = [
-            'applicant_id' => $applicantId,
-        ];
-        if ($cols['file_name'])     $insert[$cols['file_name']]    = $original;
-        if ($cols['file_path'])     $insert[$cols['file_path']]    = $path;
-        if ($cols['storage_path'])  $insert[$cols['storage_path']] = $abs;     // absolute local path for parser
-        if ($cols['file_size'])     $insert[$cols['file_size']]    = $size;
-        if ($cols['mime'])          $insert[$cols['mime']]         = $mime;
-        if ($activeCol)             $insert[$activeCol]            = !$hasActive;
-        if ($cols['ai_status'])     $insert[$cols['ai_status']]    = 'pending';
-        if ($cols['ai_parsed'])     $insert[$cols['ai_parsed']]    = null;
-        if ($cols['ai_error'])      $insert[$cols['ai_error']]     = null;
-        if ($cols['sort_order'] && $nextSort !== null) $insert[$cols['sort_order']] = $nextSort;
-        if ($cols['created_at'])    $insert[$cols['created_at']]   = now();
-        if ($cols['updated_at'])    $insert[$cols['updated_at']]   = now();
-
-        // Optional: attach to owned application
-        if (!empty($data['application_id']) && $cols['application_id']) {
-            $appId = (int) $data['application_id'];
-            $owned = DB::table('applications')->where('id', $appId)->where('applicant_id', $applicantId)->exists();
-            if ($owned) $insert[$cols['application_id']] = $appId;
-        }
-
-        $id = DB::table('resumes')->insertGetId($insert);
-
-        // ✅ Dispatch the job
-        if (config('queue.default') === 'sync') {
-            ParseResume::dispatchSync($id);
-        } else {
-            ParseResume::dispatch($id);
-        }
+        ParseResume::dispatch($id);   // runs inline when QUEUE_CONNECTION=sync
 
         return back()->with('status', 'Resume uploaded.');
     }
 
     /**
-     * ✅ Reorder resumes
-     * POST /app/resume/reorder
-     * Body: { order: [id1, id2, ...] }
+     * Reorder resumes
+     * POST /app/resume/reorder   Body: { order: [id1, id2, ...] }
      */
     public function reorder(Request $request)
     {
         $applicantId = $this->resolveApplicantId();
 
-        $sortCol = $this->col('sort_order', 'position', 'order', 'display_order', 'sort');
-        if (!$sortCol) {
-            abort(422, 'No ordering column found. Please add a sort_order column to resumes table.');
-        }
-
         $data = $request->validate([
-            'order' => ['required', 'array', 'min:1'],
+            'order'   => ['required', 'array', 'min:1'],
             'order.*' => ['integer', 'distinct'],
         ]);
 
-        $ids = array_values($data['order']);
+        $ids = array_map('intval', array_values($data['order']));
 
-        // ✅ ensure all ids belong to applicant
-        $owned = DB::table('resumes')
-            ->where('applicant_id', $applicantId)
-            ->whereIn('id', $ids)
-            ->count();
+        $owned = DB::table('resumes')->where('applicant_id', $applicantId)->whereIn('id', $ids)->count();
+        abort_if($owned !== count($ids), 403, 'Invalid resume list.');
 
-        if ($owned !== count($ids)) {
-            abort(403, 'Invalid resume list.');
-        }
-
-        DB::transaction(function () use ($ids, $sortCol, $applicantId) {
-            // Efficient CASE update (safe because we cast to int)
-            $case = "CASE id ";
+        DB::transaction(function () use ($ids, $applicantId) {
             foreach ($ids as $i => $id) {
-                $id = (int)$id;
-                $pos = $i + 1;
-                $case .= "WHEN {$id} THEN {$pos} ";
+                DB::table('resumes')
+                    ->where('applicant_id', $applicantId)
+                    ->where('id', $id)
+                    ->update(['sort_order' => $i + 1]);
             }
-            $case .= "END";
-
-            DB::table('resumes')
-                ->where('applicant_id', $applicantId)
-                ->whereIn('id', $ids)
-                ->update([$sortCol => DB::raw($case)]);
         });
 
         return back(303);
@@ -202,102 +103,49 @@ class ResumeController extends Controller
     /** Retry button posts here */
     public function retry(int $id)
     {
-        $applicantId = $this->resolveApplicantId();
-        $row = DB::table('resumes')->where('id', $id)->first();
-        abort_if(!$row || (int)$row->applicant_id !== (int)$applicantId, 404);
+        $this->ownedResume($id);
 
-        DB::table('resumes')->where('id', $id)->update(array_filter([
-            $this->col('ai_status')  => 'pending',
-            $this->col('ai_parsed')  => null,
-            $this->col('ai_error')   => null,
-            $this->col('updated_at') => now(),
-        ]));
+        DB::table('resumes')->where('id', $id)->update([
+            'ai_status'  => 'pending',
+            'ai_parsed'  => null,
+            'ai_error'   => null,
+            'updated_at' => now(),
+        ]);
 
-        if (config('queue.default') === 'sync') {
-            ParseResume::dispatchSync($id);
-        } else {
-            ParseResume::dispatch($id);
-        }
+        ParseResume::dispatch($id);
 
         return back()->with('status', 'Re-parsed.');
     }
 
     public function activate(int $id)
     {
-        $applicantId = $this->resolveApplicantId();
+        $row = $this->ownedResume($id);
 
-        $row = DB::table('resumes')->where('id', $id)->first();
-        abort_if(!$row || (int) $row->applicant_id !== (int) $applicantId, 404);
-
-        $activeCol  = $this->col('is_active', 'active', 'is_primary') ?? 'is_active';
-        $updatedCol = $this->col('updated_at');
-
-        DB::table('resumes')->where('applicant_id', $applicantId)->update(array_filter([
-            $activeCol  => false,
-            $updatedCol => $updatedCol ? now() : null,
-        ], fn($v) => true));
-
-        DB::table('resumes')->where('id', $id)->update(array_filter([
-            $activeCol  => true,
-            $updatedCol => $updatedCol ? now() : null,
-        ], fn($v) => true));
+        // Only one active résumé per applicant (also enforced by a unique index)
+        DB::transaction(function () use ($row) {
+            DB::table('resumes')->where('applicant_id', $row->applicant_id)->update(['is_active' => false, 'updated_at' => now()]);
+            DB::table('resumes')->where('id', $row->id)->update(['is_active' => true, 'updated_at' => now()]);
+        });
 
         return back()->with('status', 'Active resume updated.');
     }
 
     public function destroy(int $id)
     {
-        $applicantId = $this->resolveApplicantId();
-        $pathCol = $this->col('file_path', 'path', 'pathname', 'stored_path');
-        $row     = DB::table('resumes')->where('id', $id)->first();
-        abort_if(!$row || (int) $row->applicant_id !== (int) $applicantId, 404);
+        $row = $this->ownedResume($id);
 
-        if ($pathCol && !empty($row->$pathCol)) {
-            Storage::disk('public')->delete($row->$pathCol);
-        }
-
-        DB::table('resumes')->where('id', $id)->delete();
+        DB::table('resumes')->where('id', $row->id)->delete();
+        Uploads::delete($row->path);
 
         return back()->with('status', 'Resume removed.');
     }
 
-    /** Resolve current user's applicant_id; create minimal applicant if missing. */
-    protected function resolveApplicantId(bool $createIfMissing = false): ?int
+    /** The résumé if it belongs to the signed-in applicant, otherwise 404 */
+    protected function ownedResume(int $id): object
     {
-        $user = Auth::user();
-        if (!$user) return null;
+        $row = DB::table('resumes')->where('id', $id)->first();
+        abort_if(!$row || (int) $row->applicant_id !== (int) $this->resolveApplicantId(), 404);
 
-        if (property_exists($user, 'applicant_id') && $user->applicant_id) {
-            return (int) $user->applicant_id;
-        }
-
-        $row = DB::table('applicants')->where('user_id', $user->id)->first();
-        if ($row?->id) return (int) $row->id;
-
-        $row = DB::table('applicants')->where('email', $user->email)->first();
-        if ($row?->id) return (int) $row->id;
-
-        if (!$createIfMissing) return null;
-
-        $insert = [
-            'email'      => $user->email,
-            'user_id'    => $user->id,
-            'name'       => $user->name ?? $user->email,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ];
-
-        $id = DB::table('applicants')->insertGetId($insert);
-
-        try {
-            DB::table('users')->where('id', $user->id)->update([
-                'applicant_id' => $id,
-                'updated_at'   => now(),
-            ]);
-        } catch (\Throwable $e) {
-            // ignore if column not present
-        }
-
-        return (int) $id;
+        return $row;
     }
 }

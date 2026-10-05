@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Support\DbSchema;
 use App\Http\Controllers\Controller;
-use App\Services\MatchScorer;
+use App\Services\ApplicationScorer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,27 +27,14 @@ class AiRankingController extends Controller
             return null;
         }
 
-        // Fetch latest parsed resume record (your current design)
-        $parsedRecord = DB::table('parsed_resumes')
-            ->where('resume_id', $app->resume_id)
-            ->orderByDesc('id')
-            ->first();
+        // Same scoring as the applicant "Apply" flow (parsed data lives in resumes.ai_parsed)
+        $resume = DB::table('resumes')->where('id', $app->resume_id)->first();
 
-        if (!$parsedRecord || empty($parsedRecord->entities)) {
+        if (!$resume || empty($resume->ai_parsed)) {
             return null;
         }
 
-        $parsedEntities = json_decode($parsedRecord->entities, true);
-        if (!is_array($parsedEntities)) {
-            $parsedEntities = [];
-        }
-
-        $vacPayload = [
-            'title'       => $vacancy->title ?? '',
-            'description' => $vacancy->description ?? '',
-        ];
-
-        $S = MatchScorer::score($parsedEntities, $vacPayload);
+        $S = ApplicationScorer::score($resume, $vacancy);
 
         DB::table('applications')
             ->where('id', $app->id)
@@ -242,19 +230,19 @@ class AiRankingController extends Controller
 
         // Optional note columns (only update if they exist)
         if (!empty($data['note'])) {
-            if (Schema::hasColumn('applications', 'hr_note')) {
+            if (DbSchema::hasColumn('applications', 'hr_note')) {
                 $update['hr_note'] = $data['note'];
-            } elseif (Schema::hasColumn('applications', 'status_note')) {
+            } elseif (DbSchema::hasColumn('applications', 'status_note')) {
                 $update['status_note'] = $data['note'];
-            } elseif (Schema::hasColumn('applications', 'remarks')) {
+            } elseif (DbSchema::hasColumn('applications', 'remarks')) {
                 $update['remarks'] = $data['note'];
             }
         }
 
         // Optional: track who updated (if your schema supports)
-        if (Schema::hasColumn('applications', 'updated_by')) {
+        if (DbSchema::hasColumn('applications', 'updated_by')) {
             $update['updated_by'] = $user->id;
-        } elseif (Schema::hasColumn('applications', 'hr_user_id')) {
+        } elseif (DbSchema::hasColumn('applications', 'hr_user_id')) {
             $update['hr_user_id'] = $user->id;
         }
 
@@ -273,8 +261,8 @@ class AiRankingController extends Controller
      */
     private function loadApplicationInfo(int $applicationId): ?object
     {
-        if (!Schema::hasTable('applications')) return null;
-        if (!Schema::hasTable('vacancies')) return null;
+        if (!DbSchema::hasTable('applications')) return null;
+        if (!DbSchema::hasTable('vacancies')) return null;
 
         $q = DB::table('applications as a')
             ->join('vacancies as v', 'v.id', '=', 'a.vacancy_id')
@@ -303,12 +291,12 @@ class AiRankingController extends Controller
             $userId = $appInfo->applicant_user_id ?? null;
 
             // Fallback 1: users.applicant_id
-            if (!$userId && Schema::hasColumn('users', 'applicant_id') && !empty($appInfo->applicant_id)) {
+            if (!$userId && DbSchema::hasColumn('users', 'applicant_id') && !empty($appInfo->applicant_id)) {
                 $userId = DB::table('users')->where('applicant_id', $appInfo->applicant_id)->value('id');
             }
 
             // Fallback 2: users.email
-            if (!$userId && !empty($appInfo->applicant_email) && Schema::hasColumn('users', 'email')) {
+            if (!$userId && !empty($appInfo->applicant_email) && DbSchema::hasColumn('users', 'email')) {
                 $userId = DB::table('users')->where('email', $appInfo->applicant_email)->value('id');
             }
 

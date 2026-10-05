@@ -29,7 +29,16 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'username' => fake()->unique()->userName(),
+            'role' => 'applicant',
+            'is_hr' => false,
         ];
+    }
+
+    /** An HR staff account */
+    public function hr(): static
+    {
+        return $this->state(fn () => ['role' => 'hr', 'is_hr' => true]);
     }
 
     /**

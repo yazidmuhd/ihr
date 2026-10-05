@@ -132,7 +132,7 @@ class VacancyController extends Controller
 
         $vacancyId = DB::table('vacancies')->insertGetId([
             'title'           => $data['title'],
-            'department'      => $data['department'] ?? null,
+            'department'      => $this->ensureDepartment($data['department'] ?? null),
             'location'        => $data['location'] ?? null,
             'employment_type' => $data['employment_type'],
             'description'     => $data['description'] ?? null,
@@ -143,7 +143,6 @@ class VacancyController extends Controller
 
             'experience_min_years'      => $min,
             'experience_max_years'      => $max,
-            'experience_years_required' => $min,
 
             'education_required' => $data['education_required'] ?? null,
             'skills_required'    => $skills ? json_encode($skills) : null,
@@ -269,7 +268,7 @@ class VacancyController extends Controller
 
         DB::table('vacancies')->where('id', $id)->update([
             'title'           => $data['title'],
-            'department'      => $data['department'] ?? null,
+            'department'      => $this->ensureDepartment($data['department'] ?? null),
             'location'        => $data['location'] ?? null,
             'employment_type' => $data['employment_type'],
             'description'     => $data['description'] ?? null,
@@ -278,7 +277,6 @@ class VacancyController extends Controller
 
             'experience_min_years'      => $min,
             'experience_max_years'      => $max,
-            'experience_years_required' => $min,
 
             'education_required' => $data['education_required'] ?? null,
             'skills_required'    => $skills ? json_encode($skills) : null,
@@ -310,35 +308,28 @@ class VacancyController extends Controller
             });
     }
 
+    /** Department dropdown options (managed in the departments table) */
     private function departmentOptions(): array
     {
-        $defaults = [
-            'Engineering',
-            'IT',
-            'HR',
-            'Finance',
-            'Operations',
-            'Marketing',
-            'Sales',
-            'Customer Support',
-            'Product',
-            'Design',
-            'Legal',
-        ];
-
-        $fromDb = DB::table('vacancies')
-            ->whereNotNull('department')
-            ->distinct()
-            ->orderBy('department')
-            ->pluck('department')
+        return DB::table('departments')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name')
             ->all();
+    }
 
-        return collect($defaults)
-            ->merge($fromDb)
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
+    /** Vacancies reference departments by name; register a new one typed by HR */
+    private function ensureDepartment(?string $name): ?string
+    {
+        $name = trim((string) $name);
+        if ($name === '') return null;
+
+        DB::table('departments')->insertOrIgnore([
+            'name'       => $name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $name;
     }
 }

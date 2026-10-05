@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Support\DbSchema;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +13,7 @@ use Inertia\Response;
 class FilterController extends Controller
 {
     protected function col(string $t, string ...$n): ?string {
-        foreach ($n as $x) if (Schema::hasColumn($t, $x)) return $x;
+        foreach ($n as $x) if (DbSchema::hasColumn($t, $x)) return $x;
         return null;
     }
     protected function anon(int $id): string {
