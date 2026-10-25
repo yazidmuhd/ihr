@@ -49,6 +49,14 @@ class LoginRequest extends FormRequest
 
         RateLimiter::clear($this->throttleKey());
 
+        if (! Auth::user()->is_active) {
+            Auth::guard('web')->logout();
+
+            throw ValidationException::withMessages([
+                'login' => 'This account has been disabled. Please contact HR.',
+            ]);
+        }
+
         // IMPORTANT:
         // Don't regenerate session here.
         // Keep session()->regenerate() in the Controller (your controller already does it)

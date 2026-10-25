@@ -29,7 +29,11 @@ class SocialAuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->user();
         } catch (InvalidStateException $e) {
-            // Common local dev fallback (cookie/session domain mismatch)
+            // The state check is the CSRF protection of the Google flow: only skip it in local
+            // development, where a cookie/session domain mismatch commonly breaks it
+            if (! app()->environment('local')) {
+                return redirect()->route('login')->with('status', 'Google sign-in expired. Please try again.');
+            }
             $googleUser = Socialite::driver('google')->stateless()->user();
         } catch (Throwable $e) {
             return redirect()->route('login')->with('status', 'Google sign-in failed. Please try again.');
@@ -88,6 +92,10 @@ class SocialAuthController extends Controller
             if ($dirty) {
                 $user->save();
             }
+        }
+
+        if (! $user->is_active) {
+            return redirect()->route('login')->with('status', 'This account has been disabled. Please contact HR.');
         }
 
         Auth::login($user, true);

@@ -146,14 +146,14 @@ const icons = {
                                     class="requirement-icon"
                                     v-html="icons.check"
                                 ></span>
-                                <span>At least 8 characters</span>
+                                <span>At least 12 characters</span>
                             </li>
                             <li class="requirement-item">
                                 <span
                                     class="requirement-icon"
                                     v-html="icons.check"
                                 ></span>
-                                <span>At least one uppercase letter</span>
+                                <span>Upper and lowercase letters</span>
                             </li>
                             <li class="requirement-item">
                                 <span

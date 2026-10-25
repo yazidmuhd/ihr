@@ -144,6 +144,9 @@ const icons = {
                         <div v-if="form.errors.password" class="form-error">
                             {{ form.errors.password }}
                         </div>
+                        <div v-else class="form-hint">
+                            At least 12 characters, with upper and lowercase letters and a number.
+                        </div>
                     </div>
 
                     <!-- Confirm Password Field -->
@@ -571,6 +574,12 @@ const icons = {
 .password-toggle :deep(svg) {
     width: 20px;
     height: 20px;
+}
+
+.form-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
 }
 
 .form-error {

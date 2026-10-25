@@ -20,10 +20,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Trust only that header (not X-Forwarded-For) so links and signed URLs use https://.
         $middleware->trustProxies(at: '*', headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO);
         $middleware->append(\App\Http\Middleware\NoIndexOutsideProduction::class);
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         $middleware->web(append: [
             // Office / VPN IP allowlist; runs after the session starts so it can see HR accounts
             \App\Http\Middleware\RestrictToAllowedIps::class,
+            // Disabled accounts and idle HR sessions are signed out (docs/SECURITY.md)
+            \App\Http\Middleware\EnsureAccountIsActive::class,
+            \App\Http\Middleware\LogoutIdleHrUsers::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\SetAuditUser::class,

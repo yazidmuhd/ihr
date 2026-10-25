@@ -34,6 +34,9 @@ protected $casts = [
 ];
 
 
+    // Not fillable on purpose: only `php artisan ihr:account` changes it
+    protected $attributes = ['is_active' => true];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -45,6 +48,7 @@ protected $casts = [
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_hr'             => 'boolean',
+            'is_active'         => 'boolean',
         ];
     }
 

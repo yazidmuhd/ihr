@@ -72,13 +72,18 @@ const normalized = (s) => (s || "").toString().toLowerCase();
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+// Applicant-supplied text is rendered with v-html: escape every piece, then wrap only the matches
 function highlight(text) {
+    const s = (text ?? "").toString();
     const k = filters.value.q.trim();
-    if (!k) return text;
-    return text.replace(
-        new RegExp(`(${escapeRegex(k)})`, "ig"),
-        '<mark class="mark">$1</mark>',
-    );
+    if (!k) return escapeHtml(s);
+    return s
+        .split(new RegExp(`(${escapeRegex(k)})`, "ig"))
+        .map((part, i) => (i % 2 ? `<mark class="mark">${escapeHtml(part)}</mark>` : escapeHtml(part)))
+        .join("");
 }
 
 const filtered = computed(() => {

@@ -32,6 +32,10 @@ RUN apt-get update && apt-get install -y \
  && docker-php-ext-install gd pdo_pgsql zip \
  && rm -rf /var/lib/apt/lists/*
 
+# Production PHP settings: errors never shown to visitors, no version header, uploads sized for 5 MB résumés
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+ && printf 'expose_php=Off\nupload_max_filesize=6M\npost_max_size=8M\n' > "$PHP_INI_DIR/conf.d/zz-ihr.ini"
+
 COPY . /app
 COPY --from=vendor /app/vendor /app/vendor
 COPY --from=nodebuild /app/public/build /app/public/build

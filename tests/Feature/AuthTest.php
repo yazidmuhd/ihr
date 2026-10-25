@@ -51,8 +51,8 @@ class AuthTest extends TestCase
         $this->post('/register', [
             'name'                  => 'Aina Rahman',
             'email'                 => 'aina@example.com',
-            'password'              => 'Password123!',
-            'password_confirmation' => 'Password123!',
+            'password'              => 'Password1234!',
+            'password_confirmation' => 'Password1234!',
         ])->assertRedirect();
 
         $user = User::where('email', 'aina@example.com')->firstOrFail();
@@ -68,8 +68,8 @@ class AuthTest extends TestCase
         $this->post('/register', [
             'name'                  => 'Someone',
             'email'                 => 'taken@example.com',
-            'password'              => 'Password123!',
-            'password_confirmation' => 'Password123!',
+            'password'              => 'Password1234!',
+            'password_confirmation' => 'Password1234!',
         ])->assertSessionHasErrors('email');
 
         $this->assertSame(1, DB::table('users')->where('email', 'taken@example.com')->count());

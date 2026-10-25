@@ -79,8 +79,10 @@ Follow [DEPLOYMENT.md §1](DEPLOYMENT.md#staging-environment). No `IP_ALLOWLIST`
 | 5 | Exit node on → HR invites the phone applicant to an interview | invitation e-mail arrives |
 | 6 | Spoofing test, exit node **off**: `curl -s -o /dev/null -w "%{http_code}" -H "X-Real-IP: <exit node IPv4>" https://<prod>/hr/dashboard` | `403` (Railway replaced the fake header). `302` would mean the header can be faked: stop and remove `CLIENT_IP_HEADER` |
 | 7 | HR → **Activity** | every step above is listed with who did it |
+| 8 | `curl -sI https://<prod>/login` | security headers present, including `Content-Security-Policy` and `Strict-Transport-Security`; no `X-Powered-By` ([SECURITY.md §4](SECURITY.md#4-browser-security-headers)) |
+| 9 | Click through every HR and applicant page with the browser console (F12) open | no *Content-Security-Policy* errors |
 
-When all seven pass, the system is ready to show.
+When all nine pass, the system is ready to show.
 
 ## 7. Demo script for HR (about 15 minutes)
 
@@ -99,4 +101,5 @@ Prepare: a sample PDF résumé on your phone, the HR account on your laptop with
 
 - **Office static IP or company VPN:** add its egress IP(s) to `IP_ALLOWLIST` next to the exit node's. When everyone uses the office network, remove the exit node's IP and shut the server down.
 - **Keeping Tailscale instead:** invite each HR staff member to the tailnet (free up to 6 users; beyond that, Tailscale's paid plans). In the Tailscale policy, allow only an `hr` group to use the exit node.
-- Hand IT [DEPLOYMENT.md](DEPLOYMENT.md): environments, release flow, secret rotation and access control are all documented there.
+- Hand IT [DEPLOYMENT.md](DEPLOYMENT.md): environments, release flow, secret rotation and access control are all documented there. [SECURITY.md](SECURITY.md) covers the application's security and the open items.
+- When HR staff leave: `php artisan ihr:account disable <e-mail>` ([SECURITY.md §6](SECURITY.md#6-disabling-accounts)).
