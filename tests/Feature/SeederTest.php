@@ -43,13 +43,13 @@ class SeederTest extends TestCase
     public function test_production_refuses_to_seed_without_a_strong_admin_password(): void
     {
         $this->app['env'] = 'production';
-        putenv('HR_ADMIN_PASSWORD=short');
+        $this->setAdminPassword('short');
 
         try {
             $this->expectException(\RuntimeException::class);
             $this->runSeeder(HrUserSeeder::class);
         } finally {
-            putenv('HR_ADMIN_PASSWORD');
+            $this->setAdminPassword(null);
             $this->app['env'] = 'testing';
         }
     }
@@ -57,7 +57,7 @@ class SeederTest extends TestCase
     public function test_staging_also_requires_a_strong_admin_password(): void
     {
         $this->app['env'] = 'staging';
-        putenv('HR_ADMIN_PASSWORD');
+        $this->setAdminPassword(null);
 
         try {
             $this->expectException(\RuntimeException::class);
@@ -70,14 +70,29 @@ class SeederTest extends TestCase
     public function test_production_seeding_skips_demo_data(): void
     {
         $this->app['env'] = 'production';
-        putenv('HR_ADMIN_PASSWORD=a-very-strong-password-123');
+        $this->setAdminPassword('a-very-strong-password-123');
 
         try {
             $this->runSeeder(DatabaseSeeder::class);
             $this->assertSame(0, DB::table('vacancies')->count());
         } finally {
-            putenv('HR_ADMIN_PASSWORD');
+            $this->setAdminPassword(null);
             $this->app['env'] = 'testing';
         }
+    }
+
+    /**
+     * env() reads $_SERVER and $_ENV before getenv(), so a HR_ADMIN_PASSWORD line in .env
+     * (CI copies .env.example) would hide a putenv() alone. Set or clear all three.
+     */
+    private function setAdminPassword(?string $value): void
+    {
+        if ($value === null) {
+            putenv('HR_ADMIN_PASSWORD');
+            unset($_ENV['HR_ADMIN_PASSWORD'], $_SERVER['HR_ADMIN_PASSWORD']);
+            return;
+        }
+        putenv("HR_ADMIN_PASSWORD={$value}");
+        $_ENV['HR_ADMIN_PASSWORD'] = $_SERVER['HR_ADMIN_PASSWORD'] = $value;
     }
 }
