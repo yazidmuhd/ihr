@@ -23,6 +23,12 @@ class AiClient
         return $k ?: null;
     }
 
+    /** True when an API key is configured (the demo falls back to DemoResumeParser without one) */
+    public function hasKey(): bool
+    {
+        return $this->key() !== null;
+    }
+
     protected function base(): string
     {
         return rtrim((string) config('services.ai.base_url', 'https://openrouter.ai/api/v1'), '/');

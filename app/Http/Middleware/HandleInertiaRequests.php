@@ -67,6 +67,16 @@ class HandleInertiaRequests extends Middleware
                     : null,
             ],
 
+            // Public demo: login shortcuts and labels (null outside DEMO_MODE)
+            'demo' => config('demo.enabled') ? [
+                'password' => config('demo.password'),
+                'accounts' => array_values(array_map(
+                    fn ($a) => ['label' => $a['label'], 'email' => $a['email']],
+                    config('demo.accounts'),
+                )),
+                'resumeMaxKb' => config('demo.resume_max_kb'),
+            ] : null,
+
             // 🔔 Global notification counters (used in nav + dashboard + floating pill)
             'notifications' => fn () => $this->buildNotifications($request),
         ]);

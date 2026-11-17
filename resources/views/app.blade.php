@@ -15,7 +15,11 @@
     @inertiaHead
   </head>
   <body class="font-sans antialiased bg-slate-50">
-    @if (app()->environment('staging'))
+    @if (config('demo.enabled'))
+      <div role="status" style="position:sticky;top:0;z-index:9999;background:#1d4ed8;color:#fff;font:600 13px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center;padding:6px 12px">
+        Demo version of i-HR. All data is fictional and resets regularly. Uploaded résumés are temporary; please don't upload real personal information.
+      </div>
+    @elseif (app()->environment('staging'))
       <div role="status" style="position:sticky;top:0;z-index:9999;background:#f59e0b;color:#1c1917;font:600 13px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center;padding:6px 12px">
         Test environment — data is reset regularly and e-mails are not delivered. Please don't enter real personal information.
       </div>

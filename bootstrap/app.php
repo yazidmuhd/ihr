@@ -27,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\RestrictToAllowedIps::class,
             // Disabled accounts and idle HR sessions are signed out (docs/SECURITY.md)
             \App\Http\Middleware\EnsureAccountIsActive::class,
+            // Public demo only: blocks actions that would spoil it for the next visitor
+            \App\Http\Middleware\ProtectDemo::class,
             \App\Http\Middleware\LogoutIdleHrUsers::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,

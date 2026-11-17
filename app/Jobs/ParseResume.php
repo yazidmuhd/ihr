@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Services\AiClient;
+use App\Services\DemoResumeParser;
 use App\Services\DocumentText;
 use App\Services\ResumeEntityExtractor;
 use App\Services\SkillNormalizer;
@@ -48,8 +49,10 @@ class ParseResume implements ShouldQueue
             // light entities (rule-based, no AI)
             $entities = ResumeEntityExtractor::lightEntities($text);
 
-            // AI parse
-            $parsed = $ai->parseResumeText($text);
+            // AI parse; the public demo without an AI key uses the rule-based demo reader
+            $parsed = config('demo.enabled') && ! $ai->hasKey()
+                ? DemoResumeParser::parse($text)
+                : $ai->parseResumeText($text);
             if (!is_array($parsed)) {
                 throw new \RuntimeException('AI returned an invalid structure.');
             }
