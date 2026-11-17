@@ -1,0 +1,51 @@
+# Render Blueprint for the public i-HR demo (docs/LIVE_DEMO.md).
+# One free Docker web service in Singapore, built from the live-demo branch.
+# Secrets (APP_KEY, DB_URL) are NOT in this file: Render asks for them when the
+# Blueprint is created ("sync: false"), and they live only in Render.
+services:
+  - type: web
+    name: ihr-demo
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: live-demo
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      # Secrets: entered in the Render dashboard
+      - key: APP_KEY          # php artisan key:generate --show (starts with base64:)
+        sync: false
+      - key: DB_URL           # Neon direct connection string, ending ?sslmode=require
+        sync: false
+
+      # Demo behaviour (not secret)
+      - key: DEMO_MODE
+        value: "true"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_TIMEZONE
+        value: Asia/Kuala_Lumpur
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+      - key: MAIL_MAILER
+        value: log
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: UPLOADS_DISK
+        value: local
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: database
+      - key: IP_ALLOWLIST     # empty: visitors must be able to try the HR side
+        value: ""

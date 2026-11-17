@@ -85,3 +85,19 @@ Built locally and run against a throwaway `postgres:15` container (standing in f
 - `/.env` and unknown pages return 404 with no stack trace (`APP_DEBUG=false`).
 - In a browser: both one-click logins; the demo applicant confirms the waiting interview; a PDF upload is read and labelled "Demo analysis"; the résumé preview link serves the PDF; HR sees the AI ranking; a vacancy delete is refused with the demo message. No console errors.
 - `docker restart` brings the demo back to its starting state (the confirmed interview is pending again; the extra upload is gone).
+
+## Phase 3: database (Neon)
+
+Yazid created the Neon project (free plan, Singapore) on 17 Nov 2026. The connection string is kept out of the repo and goes only into Render as `DB_URL`.
+
+**Use the direct (non-pooled) connection string.** i-HR's audit triggers learn who made a change from a per-connection database setting (`set_config('app.user_id', …)`, set by `SetAuditUser` on every request). Neon's pooled endpoint shares database connections between requests, so a change could be credited to the wrong person. The demo needs only a handful of connections, well within the free plan.
+
+## Phase 4: Render (prepared)
+
+| Change | Where | Why |
+|---|---|---|
+| Blueprint: one free Docker web service `ihr-demo`, Singapore, `live-demo` branch, health check `/up`, auto-deploy | `render.yaml` | Everything except secrets is in the repo; `APP_KEY` and `DB_URL` are `sync: false`, so Render asks for them and they never touch git |
+| App URL falls back to `RENDER_EXTERNAL_URL` | `config/app.php` | Render sets it automatically, so links and signed résumé URLs use the real address without a manual `APP_URL` |
+| `SESSION_SECURE_COOKIE=true` | `render.yaml` | Render serves HTTPS; sign-in cookies are sent over HTTPS only |
+
+Keeping the data fresh: the container runs `demo:reset` on every start (Phase 2), and Render's free service restarts on every deploy and after each idle sleep, so no cron job is needed.
