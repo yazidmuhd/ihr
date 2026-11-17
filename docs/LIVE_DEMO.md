@@ -63,3 +63,25 @@ UPLOADS_DISK=local
 IP_ALLOWLIST=            # empty: visitors must reach the HR demo
 AI_API_KEY=              # empty: Option B
 ```
+
+## Phase 2: container
+
+The existing two-stage `Dockerfile` already matched the plan (Node 20 builds the Vite assets; PHP 8.2 with `pdo_pgsql`, `gd` and `zip` runs the app), so it was adapted rather than replaced.
+
+| Change | Where | Why |
+|---|---|---|
+| Demo start-up: `demo:reset` on every start when `DEMO_MODE=true` | `docker/start.sh` | The free host wipes its disk on every restart and wake-up; resetting the database at the same time keeps records and files in step, and gives every visitor a fresh demo |
+| PHP's built-in server, run directly from `public/` with `PHP_CLI_SERVER_WORKERS` (default 4) on `$PORT` | `docker/start.sh` | One process, no Nginx to configure; replaces `artisan serve` so the host's environment variables reach the app unchanged. Fine for demo traffic; a real launch would use Nginx + PHP-FPM or FrankenPHP |
+| Package list rebuilt inside the image | `Dockerfile`, `.dockerignore` | **Bug found by the first real build:** the developer's cached `bootstrap/cache/packages.php` listed dev-only packages (Laravel Pail), so the production image crashed on start. Railway would have hit this too |
+| Tests, test output, local uploads and CI files left out of the image | `.dockerignore` | Smaller image; no local data shipped |
+
+**Web server choice:** PHP's built-in server with worker processes. It is one container process listening on Render's `$PORT`, needs no extra configuration, and handles a demo's traffic. It is not meant for heavy production load.
+
+### Verified (Docker 29.9.2, image 951 MB)
+
+Built locally and run against a throwaway `postgres:15` container (standing in for Neon), with the Phase 1 demo settings and `PORT=10000` as Render sets it:
+
+- Start-up resets the demo (about 5 s of seeding), then serves: `/up`, `/login`, `/jobs` return 200.
+- `/.env` and unknown pages return 404 with no stack trace (`APP_DEBUG=false`).
+- In a browser: both one-click logins; the demo applicant confirms the waiting interview; a PDF upload is read and labelled "Demo analysis"; the résumé preview link serves the PDF; HR sees the AI ranking; a vacancy delete is refused with the demo message. No console errors.
+- `docker restart` brings the demo back to its starting state (the confirmed interview is pending again; the extra upload is gone).
