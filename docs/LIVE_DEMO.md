@@ -101,3 +101,10 @@ Yazid created the Neon project (free plan, Singapore) on 17 Nov 2026. The connec
 | `SESSION_SECURE_COOKIE=true` | `render.yaml` | Render serves HTTPS; sign-in cookies are sent over HTTPS only |
 
 Keeping the data fresh: the container runs `demo:reset` on every start (Phase 2), and Render's free service restarts on every deploy and after each idle sleep, so no cron job is needed.
+
+### Deployed (17 Nov 2026)
+
+Live at **https://ihr-demo.onrender.com** (Render free, Singapore, from `live-demo` at `0d87280`).
+
+- **First deploy failed** with `SQLSTATE[25P02] current transaction is aborted` in the first migration. `DB_URL` pointed at Neon's pooled host (`…-pooler…`), which does not keep one steady connection through a migration's transaction. Switching `DB_URL` to the direct host (the same address without `-pooler`) fixed it, with no code change. The direct host is also what the audit trail needs (Phase 3).
+- Checked from outside: `/up`, `/login`, `/jobs` return 200; `/.env` and unknown pages return 404; HTTPS with HSTS, the CSP and `X-Frame-Options` present; session cookies are `Secure` and `SameSite=Lax`; the login page shows the demo banner and both demo accounts.
