@@ -14,6 +14,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // The public demo gets its own accounts and fictional data (docs/LIVE_DEMO.md)
+        if (config('demo.enabled')) {
+            $this->call(DemoSeeder::class);
+
+            return;
+        }
+
         $this->call(DepartmentSeeder::class);
         $this->call(HrUserSeeder::class);
 

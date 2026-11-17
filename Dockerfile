@@ -43,6 +43,10 @@ COPY --from=nodebuild /app/public/build /app/public/build
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views bootstrap/cache \
  && chmod -R 775 storage bootstrap/cache
 
+# Build the package list from the production vendor/ (a developer's cached list names
+# dev-only packages such as Laravel Pail, which crashes the app when they are absent)
+RUN rm -f bootstrap/cache/*.php && php artisan package:discover --ansi
+
 ENV PORT=8080
 EXPOSE 8080
 

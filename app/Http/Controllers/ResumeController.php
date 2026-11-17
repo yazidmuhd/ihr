@@ -40,8 +40,11 @@ class ResumeController extends Controller
     {
         $applicantId = $this->resolveApplicantId(createIfMissing: true);
 
+        // The public demo accepts PDF only, up to 2 MB
         $data = $request->validate([
-            'resume' => 'required|file|mimes:pdf,doc,docx|max:5120',
+            'resume' => config('demo.enabled')
+                ? 'required|file|mimes:pdf|max:' . config('demo.resume_max_kb')
+                : 'required|file|mimes:pdf,doc,docx|max:5120',
         ]);
 
         $file = $data['resume'];

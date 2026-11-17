@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Applicant/Resume/Index.vue -->
 <script setup>
-import { Head, router } from "@inertiajs/vue3";
-import { ref, watch } from "vue";
+import { Head, router, usePage } from "@inertiajs/vue3";
+import { computed, ref, watch } from "vue";
 import ApplicantLayout from "@/Components/Layouts/ApplicantLayout.vue";
 
 const props = defineProps({
@@ -63,24 +63,27 @@ function years(aiObj) {
     );
 }
 
+// Public demo settings (null outside DEMO_MODE)
+const demo = computed(() => usePage().props?.demo || null);
+
 /* ---------- actions ---------- */
 function onUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-        showToast("File size must be less than 5MB", "error");
+    // Validate file (the public demo: PDF only, 2 MB)
+    const maxMb = demo.value ? demo.value.resumeMaxKb / 1024 : 5;
+    if (file.size > maxMb * 1024 * 1024) {
+        showToast(`File size must be less than ${maxMb}MB`, "error");
         e.target.value = "";
         return;
     }
 
     // ✅ Keep consistent with backend extractor (PDF + DOCX only)
-    const validTypes = [".pdf", ".docx"];
+    const validTypes = demo.value ? [".pdf"] : [".pdf", ".docx"];
     const fileExt = "." + file.name.split(".").pop().toLowerCase();
     if (!validTypes.includes(fileExt)) {
-        showToast("Please upload PDF or DOCX files only", "error");
+        showToast(demo.value ? "The demo accepts PDF files only" : "Please upload PDF or DOCX files only", "error");
         e.target.value = "";
         return;
     }
@@ -263,7 +266,7 @@ const icons = {
                     <input
                         type="file"
                         class="sr-only"
-                        accept=".pdf,.docx"
+                        :accept="demo ? '.pdf' : '.pdf,.docx'"
                         @change="onUpload"
                     />
                     <span class="btn-icon" v-html="icons.upload"></span>
@@ -360,7 +363,7 @@ const icons = {
                                         class="ai-icon"
                                         v-html="icons.check"
                                     ></span>
-                                    <span>AI Parsed Successfully</span>
+                                    <span>{{ parseAi(r.ai_parsed).demo ? "Demo analysis (no AI in the public demo)" : "AI Parsed Successfully" }}</span>
                                 </div>
 
                                 <div class="ai-grid">

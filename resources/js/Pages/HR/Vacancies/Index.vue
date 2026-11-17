@@ -96,9 +96,9 @@ function confirmDelete() {
             showDeleteModal.value = false;
             showToast("Vacancy deleted successfully", "success");
         },
-        onError: () => {
+        onError: (errors) => {
             showDeleteModal.value = false;
-            showToast("Failed to delete vacancy", "error");
+            showToast(errors.demo || "Failed to delete vacancy", "error");
         },
     });
 }

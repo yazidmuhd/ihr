@@ -10,3 +10,12 @@ public/storage
 .git
 storage/app/public/resumes
 storage/app/public/avatars
+tests
+phpunit.xml
+.phpunit.result.cache
+playwright-report
+test-results
+storage/app/private/resumes
+storage/app/private/avatars
+.github
+bootstrap/cache/*.php

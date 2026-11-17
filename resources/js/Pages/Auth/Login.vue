@@ -19,6 +19,15 @@ function submit() {
     form.post(route("login.store"));
 }
 
+// Public demo: one-click sign-in with the demo accounts (null outside DEMO_MODE)
+const demo = computed(() => page.props?.demo || null);
+
+function loginAs(account) {
+    form.login = account.email;
+    form.password = demo.value.password;
+    submit();
+}
+
 function googleLogin() {
     window.location.href = route("oauth.google.redirect");
 }
@@ -74,8 +83,30 @@ const icons = {
                     {{ status }}
                 </div>
 
-                <!-- Google Sign In -->
-                <a class="google-btn" href="/auth/google/redirect">
+                <!-- Public demo accounts -->
+                <section v-if="demo" class="demo-box" aria-label="Demo accounts">
+                    <p class="demo-title">Try the demo</p>
+                    <p class="demo-text">
+                        Sign in with a demo account. Password for both:
+                        <code>{{ demo.password }}</code>
+                    </p>
+                    <div class="demo-buttons">
+                        <button
+                            v-for="account in demo.accounts"
+                            :key="account.email"
+                            type="button"
+                            class="demo-btn"
+                            :disabled="form.processing"
+                            @click="loginAs(account)"
+                        >
+                            Log in as {{ account.label }}
+                            <span class="demo-email">{{ account.email }}</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Google Sign In (not configured in the public demo) -->
+                <a v-if="!demo" class="google-btn" href="/auth/google/redirect">
                     <span class="google-icon" v-html="icons.google"></span>
                     <span>Continue with Google</span>
                 </a>
@@ -701,5 +732,64 @@ const icons = {
         gap: 0.75rem;
         align-items: center;
     }
+}
+
+/* Public demo accounts */
+.demo-box {
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+}
+.demo-title {
+    margin: 0 0 4px;
+    font-weight: 700;
+    color: #1e3a8a;
+}
+.demo-text {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #1e40af;
+}
+.demo-text code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 12.5px;
+}
+.demo-buttons {
+    display: grid;
+    gap: 8px;
+}
+.demo-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 14px;
+    border: 1px solid #93c5fd;
+    border-radius: 10px;
+    background: #fff;
+    color: #1e3a8a;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease-out, border-color 0.15s ease-out;
+}
+.demo-btn:active {
+    transform: scale(0.98);
+}
+.demo-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+@media (hover: hover) and (pointer: fine) {
+    .demo-btn:hover {
+        border-color: #2563eb;
+    }
+}
+.demo-email {
+    font-size: 12px;
+    font-weight: 400;
+    color: #475569;
 }
 </style>
