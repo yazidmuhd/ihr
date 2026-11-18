@@ -101,3 +101,30 @@ Yazid created the Neon project (free plan, Singapore) on 17 Nov 2026. The connec
 | `SESSION_SECURE_COOKIE=true` | `render.yaml` | Render serves HTTPS; sign-in cookies are sent over HTTPS only |
 
 Keeping the data fresh: the container runs `demo:reset` on every start (Phase 2), and Render's free service restarts on every deploy and after each idle sleep, so no cron job is needed.
+
+### Deployed (17 Nov 2026)
+
+Live at **https://ihr-demo.onrender.com** (Render free, Singapore, from `live-demo` at `0d87280`).
+
+- **First deploy failed** with `SQLSTATE[25P02] current transaction is aborted` in the first migration. `DB_URL` pointed at Neon's pooled host (`…-pooler…`), which does not keep one steady connection through a migration's transaction. Switching `DB_URL` to the direct host (the same address without `-pooler`) fixed it, with no code change. The direct host is also what the audit trail needs (Phase 3).
+- Checked from outside: `/up`, `/login`, `/jobs` return 200; `/.env` and unknown pages return 404; HTTPS with HSTS, the CSP and `X-Frame-Options` present; session cookies are `Secure` and `SameSite=Lax`; the login page shows the demo banner and both demo accounts.
+
+## Phase 5: checks against the live site
+
+| Change | Where | Why |
+|---|---|---|
+| Playwright smoke test, 14 checks (11 on desktop Chrome, 3 again on a Pixel 7 screen) | `tests/e2e/demo-smoke.spec.ts` | Proves the live demo works the way a recruiter would try it |
+| Wake-up step before the tests | `tests/e2e/wake-up.ts` | The free host sleeps; the first request shows Render's "waking up" page for about a minute |
+| Own `package.json` in `tests/e2e` | `tests/e2e/package.json` | Keeps Playwright out of the app's packages and the Docker build (`tests` is already left out of the image) |
+| Workflow: after each push to `live-demo` (with a 6-minute wait for Render), daily at 09:00 MYT, and on demand | `.github/workflows/demo-smoke.yml` | Catches a broken demo before a recruiter does; the HTML report is kept as a build artefact |
+
+What the checks cover:
+
+- **Visitors:** the login page shows the banner and both demo accounts, with no console errors and nothing wider than a phone screen. The public job list loads. A guest asking for an HR page is sent to the login page.
+- **Applicant:** logs in to their own dashboard; finds a job they have not applied to, applies, sees it under My Applications, then withdraws it so the demo is left as it was; gets `403` on four HR pages.
+- **HR:** logs in to the HR dashboard; opens a vacancy's ranking and sees candidates with match scores.
+- **Security:** HSTS, CSP and `X-Frame-Options` present and no `X-Powered-By`; `/.env` and unknown pages return `404` with no error details; a password reset for a demo account is refused.
+
+**Result (18 Nov 2026):** 14 of 14 passed against https://ihr-demo.onrender.com in 46 s. The first run found one mistake in the test itself: on a phone the sidebar hides the user's name, so the check now looks for the visible copy.
+
+**Phone layout:** checked by screenshot on a Pixel 7-sized screen (banner, header menu and dashboard cards fit). A check on a real phone is still for Yazid to do.

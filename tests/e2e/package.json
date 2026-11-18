@@ -1,0 +1,12 @@
+{
+  "name": "ihr-demo-smoke",
+  "private": true,
+  "description": "Smoke test for the public i-HR live demo (docs/LIVE_DEMO.md). Separate from the app's own packages.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

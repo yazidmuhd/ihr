@@ -22,3 +22,8 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Live demo smoke test (tests/e2e)
+/tests/e2e/node_modules
+/tests/e2e/playwright-report
+/tests/e2e/test-results
