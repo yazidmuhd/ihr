@@ -1,0 +1,55 @@
+name: live demo smoke test
+
+# Checks the public demo (https://ihr-demo.onrender.com) with Playwright: tests/e2e.
+# Runs after each push to the demo branch (once Render has had time to deploy),
+# every morning, and on demand from the Actions tab ("Run workflow").
+on:
+  push:
+    branches: [live-demo]
+  schedule:
+    - cron: "0 1 * * *"   # 09:00 Malaysia time
+  workflow_dispatch:
+    inputs:
+      demo_url:
+        description: Demo address to test
+        default: https://ihr-demo.onrender.com
+
+concurrency:
+  group: demo-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tests/e2e
+    env:
+      DEMO_URL: ${{ inputs.demo_url || 'https://ihr-demo.onrender.com' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tests/e2e/package-lock.json
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # Render builds and restarts the service after a push; test the new version, not the old one
+      - name: Wait for Render to deploy
+        if: github.event_name == 'push'
+        run: sleep 360
+
+      - run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 14
