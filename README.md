@@ -1,10 +1,50 @@
 # i-HR: Intelligent Human Resource Recruitment System
 
+[![tests](https://github.com/yazidmuhd/ihr/actions/workflows/tests.yml/badge.svg)](https://github.com/yazidmuhd/ihr/actions/workflows/tests.yml)
+[![live demo smoke test](https://github.com/yazidmuhd/ihr/actions/workflows/demo-smoke.yml/badge.svg)](https://github.com/yazidmuhd/ihr/actions/workflows/demo-smoke.yml)
+
+**▶ Live demo: [ihr-demo.onrender.com](https://ihr-demo.onrender.com)**: no sign-up needed, just click "Log in as Applicant" or "Log in as HR staff". [More below](#try-the-live-demo).
+
 i-HR is a web system that helps an HR team hire people. It covers everything from posting a job to turning the chosen candidate into an employee record. Its main helper is AI: it reads every applicant's résumé and shows HR which candidates fit the job best.
 
 i-HR was developed as a final year project for **CSP650** at **Universiti Teknologi MARA (UiTM)**, with **BASF PETRONAS Chemicals Sdn. Bhd.** as the case study organisation. The requirements and design are documented in the [project documents](#project-documents) below.
 
 > **In one sentence:** applicants apply online with their résumé, the system reads and scores each one against the job, and HR interviews, rates and hires the best candidates in one place, with a record of every decision.
+
+![The login page of the live demo, with one-click demo logins](docs/screenshots/login.png)
+
+---
+
+## Try the live demo
+
+**[ihr-demo.onrender.com](https://ihr-demo.onrender.com)**
+
+| Log in as | E-mail | Password | What to try |
+|---|---|---|---|
+| **Applicant** | `applicant@demo.ihr` | `Demo@Ihr2026!` | Browse jobs, upload a PDF résumé and see it read, apply, confirm the waiting interview invitation |
+| **HR staff** | `hr@demo.ihr` | `Demo@Ihr2026!` | Open a vacancy's AI ranking, shortlist, schedule interviews, rate candidates, read the activity log |
+
+The login page has one-click buttons for both accounts.
+
+> **Hosted on a free tier:** the first visit after a quiet period takes about a minute to wake up. After that, pages load normally.
+
+How the demo differs from a real installation:
+
+- **All data is fictional:** 6 vacancies, 20 applicants and 25 applications at every stage, from submitted to hired. The sample résumés are marked "FICTIONAL SAMPLE RÉSUMÉ".
+- **It resets itself.** Every time the server wakes up, the data goes back to the start, and uploaded résumés are deleted. Please don't upload real personal information.
+- **No AI service and no e-mail.** New résumés are read by simple built-in rules and labelled "Demo analysis"; the seeded applicants carry pre-computed scores. E-mails are written to the log instead of being sent.
+- **The HR area is open to everyone**, so visitors can try it. In a real installation it only opens from the company network.
+- **A few actions are switched off:** deleting vacancies (closing or archiving still works) and changing the demo passwords.
+
+A Playwright smoke test checks the live demo after every deploy and every morning (the second badge above): both logins, applying for a job, HR's ranked scores, access control and the security headers. How the demo is built and hosted (Docker on Render, PostgreSQL on Neon) is in [docs/LIVE_DEMO.md](docs/LIVE_DEMO.md).
+
+### Screenshots
+
+| Applicant: my applications and match scores | HR: AI ranking of candidates |
+|---|---|
+| ![Applicant's applications with match scores](docs/screenshots/applicant-applications.png) | ![AI ranking of candidates for a vacancy](docs/screenshots/hr-ai-ranking.png) |
+| **HR: activity log (who changed what, and when)** | **On a phone** |
+| ![Activity log of every change](docs/screenshots/hr-activity.png) | <img src="docs/screenshots/phone-login.png" alt="The login page on a phone" width="260"> |
 
 ---
 
@@ -97,7 +137,7 @@ The **Activity** page and each employee's **hiring timeline** show every step: w
 
 HR data is personal data, so the system is built to protect it:
 
-- **The HR area only opens from the office network or VPN.** From anywhere else, HR pages refuse to load, even with the right password. Applicants can still apply from anywhere.
+- **The HR area only opens from the office network or VPN.** From anywhere else, HR pages refuse to load, even with the right password. Applicants can still apply from anywhere. (The public demo switches this off so visitors can try the HR side.)
 - **Strong passwords** are required, and repeated wrong passwords are slowed down.
 - **HR is signed out after 30 minutes of inactivity**, in case a laptop is left open.
 - **Résumés are stored privately.** They're only shown through short-lived links, never as public files.
@@ -166,7 +206,7 @@ The documents describe the system as submitted in January 2026. These parts were
 | File storage | Local disk in development; a private S3-compatible bucket in production |
 | Background work | Laravel queue (résumé parsing) and scheduler (interview reminders) |
 | Sign-in | E-mail or username + password, or Google |
-| Hosting | Railway: separate production and staging (public test site) environments |
+| Hosting | Railway: separate production and staging (public test site) environments. Public demo: Docker on Render (free) with PostgreSQL on Neon (free) |
 
 ### Where things are
 
@@ -209,7 +249,9 @@ createdb ihr_test
 php artisan test
 ```
 
-The tests use PostgreSQL rather than an in-memory database, because the database triggers and constraints are part of what they test. GitHub Actions runs them on every push and pull request.
+There are 72 tests. They use PostgreSQL rather than an in-memory database, because the database triggers and constraints are part of what they test. GitHub Actions runs them on every push and pull request, together with `composer audit`, which fails the build when a package has a known security advisory.
+
+The live demo has its own Playwright smoke test in [tests/e2e](tests/e2e/README.md): 14 checks against the real site, including three on a phone-sized screen.
 
 ### Deployment and operations
 
@@ -218,6 +260,7 @@ The tests use PostgreSQL rather than an in-memory database, because the database
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Railway setup (production and staging), releasing a change, rotating secrets, the office/VPN IP allowlist |
 | [docs/GO-LIVE.md](docs/GO-LIVE.md) | Step-by-step launch checklist, final verification and a 15-minute HR demo script |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security measures, how to review them, and what's still open |
+| [docs/LIVE_DEMO.md](docs/LIVE_DEMO.md) | The public demo: demo mode, the container, Render and Neon, and the smoke test |
 
 Useful commands:
 
@@ -226,6 +269,7 @@ php artisan ihr:check                         # are all services configured?
 php artisan ihr:account list                  # HR accounts
 php artisan ihr:account disable <e-mail>      # someone left: block access, keep history
 php artisan ihr:reset-demo                    # staging only: reset the demo data
+php artisan demo:reset                        # public demo only (DEMO_MODE=true): rebuild the demo
 ```
 
 ---
