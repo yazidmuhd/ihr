@@ -128,3 +128,21 @@ What the checks cover:
 **Result (18 Nov 2026):** 14 of 14 passed against https://ihr-demo.onrender.com in 46 s. The first run found one mistake in the test itself: on a phone the sidebar hides the user's name, so the check now looks for the visible copy.
 
 **Phone layout:** checked by screenshot on a Pixel 7-sized screen (banner, header menu and dashboard cards fit). A check on a real phone is still for Yazid to do.
+
+## Phase 6: README
+
+| Change | Where |
+|---|---|
+| Live demo link and badges (PHP tests, live demo smoke test) at the top, with the login screenshot | `README.md` |
+| "Try the live demo": accounts table, the free-tier wake-up note, how the demo differs from a real installation, link to this log | `README.md` |
+| Four screenshots: an applicant's applications with match scores, HR's AI ranking, the activity log, the login page on a phone | `docs/screenshots/` |
+| Screenshots can be retaken from the live site with `npm run screenshots` | `tests/e2e/screenshots.mjs` |
+| Security section notes that the demo switches off the office-network rule; the hosting, tests and operations tables mention the demo | `README.md` |
+
+**Not added yet:** the award. The plan mentions an Industry Panel Award, but the repo has no details of it, so it waits for Yazid's exact wording.
+
+**Noticed, not changed:** the smoke test withdraws the application it makes, but the withdrawn application stays in the counts (the demo applicant shows 3 applications instead of 2) until the next reset. Harmless, because the demo resets on every wake-up.
+
+## Status
+
+The demo is live at **https://ihr-demo.onrender.com**. All 72 PHP tests and all 14 smoke checks pass.
